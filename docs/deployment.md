@@ -35,6 +35,14 @@ binds a host port; Postgres and Redis are reachable only on the internal Compose
    ```
    Caddy obtains and renews the Let's Encrypt certificate automatically once DNS
    resolves to the VPS.
+7. **Run migrations and create the first admin**:
+   ```sh
+   docker compose run --rm api alembic upgrade head
+   docker compose run --rm \
+     -e ICM_BOOTSTRAP_ADMIN_EMAIL=you@example.com \
+     -e ICM_BOOTSTRAP_ADMIN_PASSWORD='a-strong-password' \
+     api python -m app.platform.auth.bootstrap
+   ```
 
 ## Updating
 
@@ -44,7 +52,7 @@ docker compose up -d --build   # rebuilds changed images, restarts only affected
 docker compose ps
 ```
 
-Database migrations (once Alembic lands in phase 4) run before the restart:
+Run database migrations before restarting the api:
 `docker compose run --rm api alembic upgrade head`.
 
 ## Backups

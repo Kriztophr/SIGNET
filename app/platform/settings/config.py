@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://icm:icm@localhost:5432/icm"
     redis_url: str = "redis://localhost:6379/0"
 
-    secret_key: str = "dev-only-change-me"
+    secret_key: str = "dev-only-change-me-never-use-in-production"
+    access_token_expire_minutes: int = 60
 
     @property
     def is_production(self) -> bool:

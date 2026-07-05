@@ -14,6 +14,8 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY app ./app
+COPY alembic.ini ./
+COPY migrations ./migrations
 
 RUN groupadd -r icm && useradd -r -g icm -d /app icm && chown -R icm:icm /app
 USER icm
