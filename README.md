@@ -27,7 +27,7 @@ Where the two conflict, the master backend platform spec wins.
 |---|---|---|---|
 | Shared core | `app/platform` | Auth, RBAC, DB, storage, events, observability | ✅ built |
 | Workflow | `app/workflow` | Staged execution, context assembly, artifact handoff | ✅ built |
-| Governance | `app/governance` | Policy checks, approvals, review, audit, escalation | 🔨 in progress |
+| Governance | `app/governance` | Policy checks, approvals, review, audit, escalation | ✅ built |
 | Evals | `app/evals` | Scoring, baselines, regression packs, calibration, drift | ⏳ planned |
 | Environment | `app/environment` | Reusable templates, profiles, references, promotion | ⏳ planned |
 | Human Capacity Resilience | `app/resilience` | Human capability measurement, fallback readiness, reversibility | ⏳ planned |
@@ -47,8 +47,13 @@ Where the two conflict, the master backend platform spec wins.
    then complete (`POST /workflow/stage-runs/{id}/complete`). Completion is blocked until every
    contracted output role has an artifact.
 4. **Handoff**: the completed stage's latest artifact per role becomes the next stage's
-   layer-4 inputs, with provenance. Stages marked `review_required` pause the run for
-   governance review before advancing.
+   layer-4 inputs, with provenance. Stages marked `review_required` (or matched by an
+   active `require_review` policy rule) pause the run and open a governance review task.
+5. **Review**: reviewers work the queue (`GET /governance/review-tasks?status=open`) and
+   **approve**, **edit** (the edited artifact becomes the handoff version), **reject**
+   (fails the run), or **escalate** (opens an admin task). Every control decision is
+   recorded as a `ReviewDecision` plus an audit event
+   (`GET /governance/audit-events`, auditor/admin only).
 
 ## Architecture conventions
 

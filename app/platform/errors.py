@@ -12,3 +12,7 @@ class InvalidStateError(DomainError):
 
 class DomainValidationError(DomainError):
     """Input is structurally valid but violates a domain rule or contract."""
+
+
+class ForbiddenError(DomainError):
+    """Caller is authenticated but not entitled to perform this action."""

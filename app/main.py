@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.governance.api.routes import router as governance_router
 from app.platform.auth.api import router as auth_router
 from app.platform.errors import (
     DomainValidationError,
+    ForbiddenError,
     InvalidStateError,
     NotFoundError,
 )
@@ -15,6 +17,7 @@ from app.workflow.api.routes import router as workflow_router
 
 _ERROR_STATUS = {
     NotFoundError: 404,
+    ForbiddenError: 403,
     InvalidStateError: 409,
     DomainValidationError: 422,
 }
@@ -47,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(workflow_router)
+    app.include_router(governance_router)
     return app
 
 

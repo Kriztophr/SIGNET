@@ -70,13 +70,32 @@ class StageExecutionCoordinator:
         stage = stage_run.stage_definition
         self._validate_contract_outputs(stage_run, stage)
 
-        if stage.review_required:
+        # Local imports: workflow and governance call into each other across the
+        # review gate, so the dependency is resolved at call time.
+        from app.governance.services.policies import PolicyEngine
+        from app.governance.services.reviews import ReviewTaskService
+
+        needs_review = stage.review_required or PolicyEngine(self._session).stage_requires_review(
+            run, stage_run, stage
+        )
+        if needs_review:
             stage_run.status = StageRunStatus.awaiting_review
             run.status = WorkflowRunStatus.paused_for_review
             self._session.flush()
-            # The governance module owns the review lifecycle from here (phase 6).
+            ReviewTaskService(self._session, self._storage).request_review(run, stage_run, stage)
             return run
 
+        return self._finalize_stage(stage_run)
+
+    def resume_approved_stage(self, stage_run: StageRun) -> WorkflowRun:
+        """Called by governance once a review resolves in favour of the stage."""
+        if stage_run.status is not StageRunStatus.awaiting_review:
+            raise InvalidStateError(
+                f"only a stage awaiting review can resume (stage run is {stage_run.status})"
+            )
+        stage_run.status = StageRunStatus.approved
+        stage_run.run.status = WorkflowRunStatus.running
+        self._session.flush()
         return self._finalize_stage(stage_run)
 
     def _finalize_stage(self, stage_run: StageRun) -> WorkflowRun:

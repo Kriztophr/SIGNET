@@ -32,11 +32,11 @@ class ArtifactService:
         created_by_id: uuid.UUID | None,
         is_human_edited: bool = False,
         source_artifact_id: uuid.UUID | None = None,
+        allowed_states: tuple[StageRunStatus, ...] = (StageRunStatus.running,),
     ) -> Artifact:
-        if stage_run.status is not StageRunStatus.running:
+        if stage_run.status not in allowed_states:
             raise InvalidStateError(
-                f"artifacts can only be submitted to a running stage "
-                f"(stage run is {stage_run.status})"
+                f"artifacts cannot be submitted to a stage in state {stage_run.status}"
             )
         version = self._repo.next_artifact_version(stage_run.id, artifact_role)
         key = artifact_key(
