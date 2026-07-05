@@ -113,10 +113,20 @@ Configuration is environment-variable driven with the `ICM_` prefix (see
 `app/platform/settings/config.py`). Local defaults work without a `.env` file; production
 values are injected via the deployment environment and never committed.
 
+## Security
+
+Security is enforced in the platform, not around it: fail-closed production boot
+checks, JWT with issuer verification and DB-loaded privileges, login throttling,
+a 12-character password floor, tenant-scoped repositories everywhere, host
+allowlisting, security headers at both the app and the edge, and a test sweep
+asserting every route requires authentication. The full model and its documented
+limitations live in [docs/security.md](docs/security.md).
+
 ## Deployment
 
 Single Hostinger VPS via Docker Compose: Caddy (edge, the only host-exposed service) →
 FastAPI api → Postgres, Redis, Celery worker, with persistent volumes for the database and
 artifact storage. See [docs/deployment.md](docs/deployment.md) for the full runbook:
 provisioning, hardening, first deploy, migrations, admin bootstrap, updates, and backups.
+CI (GitHub Actions) runs lint and the full test suite on every push.
 Kubernetes is a deliberate non-goal.

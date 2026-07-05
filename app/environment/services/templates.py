@@ -15,6 +15,7 @@ from app.environment.models.entities import (
 )
 from app.environment.repositories.environment import EnvironmentRepository
 from app.platform.errors import DomainValidationError
+from app.platform.events.bus import get_event_bus
 from app.platform.storage.service import StorageService
 from app.platform.time.clock import utc_now
 
@@ -107,6 +108,14 @@ class EnvironmentTemplateService:
                 )
             )
         self._session.flush()
+        get_event_bus().publish(
+            "environment.template.versioned",
+            {
+                "environment_template_id": str(template.id),
+                "environment_template_version_id": str(version.id),
+                "version_number": version.version_number,
+            },
+        )
         return self._repo.get_version(tenant_id, version.id)
 
 

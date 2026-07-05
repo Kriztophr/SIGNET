@@ -81,7 +81,8 @@ def test_reference_bundle_and_blueprint(client, manager_headers) -> None:
         headers=manager_headers,
     )
     assert bundle.status_code == 201, bundle.text
-    assert bundle.json()["storage_uri"].startswith("local://")
+    assert bundle.json()["manifest_json"] == {"files": 1}
+    assert "storage_uri" not in bundle.json()  # spec 25: no storage refs in responses
 
     blueprint = client.post(
         "/environment/workspace-blueprints",

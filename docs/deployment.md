@@ -24,9 +24,14 @@ binds a host port; Postgres and Redis are reachable only on the internal Compose
    git clone https://github.com/Kriztophr/NS.git icm-platform
    cd icm-platform
    cp .env.example .env
-   # Edit .env: strong POSTGRES_PASSWORD, long random ICM_SECRET_KEY,
-   # DOMAIN=your.real.domain (DNS A record must already point here)
+   # Edit .env:
+   #   POSTGRES_PASSWORD  - strong and unique
+   #   ICM_SECRET_KEY     - python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+   #   ICM_ALLOWED_HOSTS  - your.real.domain (production refuses to boot with "*")
+   #   DOMAIN             - your.real.domain (DNS A record must already point here)
    ```
+   The api container **fails closed at startup** if the secret key is weak, debug is
+   on, or the host allowlist is a wildcard — see [security.md](security.md).
 6. **Start the stack**:
    ```sh
    docker compose up -d --build
@@ -70,9 +75,20 @@ Run database migrations before restarting the api:
 
 ## Logs and health
 
-- `docker compose logs -f api worker` — structured app logs go to stdout.
+- `docker compose logs -f api worker` — structured app logs go to stdout (JSON in
+  production). Failed logins and throttle events appear as `security` log events.
 - `GET /health` — liveness for the api; Compose healthchecks cover postgres, redis,
   api, and the Celery worker.
+- Every response carries `X-Correlation-ID`; pass one in to trace a request across
+  logs and audit events (`GET /governance/audit-events`, auditor/admin).
+
+## Security
+
+The full security model — authentication, RBAC, tenant isolation, fail-closed
+gates, throttling, headers, secrets hygiene, and known limitations — is documented
+in [security.md](security.md). CI runs lint + tests on every push
+(`.github/workflows/ci.yml`); re-run the dependency CVE audit periodically as
+described there.
 
 ## Future local GPU node (extension point — do not build yet)
 

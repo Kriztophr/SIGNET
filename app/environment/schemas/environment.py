@@ -88,13 +88,13 @@ class ReferenceBundleCreate(BaseModel):
 
 
 class ReferenceBundleOut(BaseModel):
+    # storage_uri deliberately excluded: spec 25, no internal storage refs in responses.
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     environment_template_version_id: uuid.UUID
     name: str
     bundle_type: str
-    storage_uri: str
     manifest_json: dict
     created_at: datetime
 
