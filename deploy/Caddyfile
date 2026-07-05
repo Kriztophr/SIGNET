@@ -12,11 +12,16 @@
 		-Server
 	}
 
+	# handle blocks are mutually exclusive, so the SPA's try_files rewrite
+	# can never swallow an API path.
 	@api path /auth/* /users/* /health /workflow/* /governance/* /evals/* /environment/* /resilience/* /docs* /openapi.json
-	reverse_proxy @api api:8000
+	handle @api {
+		reverse_proxy api:8000
+	}
 
-	# Everything else is the operations console (SPA with client-side routing).
-	root * /srv
-	try_files {path} /index.html
-	file_server
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
 }

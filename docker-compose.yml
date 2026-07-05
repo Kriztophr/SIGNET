@@ -33,7 +33,8 @@ services:
     <<: *app-common
     command: ["celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
     healthcheck:
-      test: ["CMD", "celery", "-A", "app.tasks.celery_app:celery_app", "inspect", "ping", "-d", "celery@$$HOSTNAME", "--timeout", "5"]
+      # CMD-SHELL so $$HOSTNAME expands inside the container shell.
+      test: ["CMD-SHELL", "celery -A app.tasks.celery_app:celery_app inspect ping -d celery@$$HOSTNAME --timeout 5"]
       interval: 60s
       timeout: 10s
       retries: 3
