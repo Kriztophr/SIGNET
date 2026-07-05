@@ -6,6 +6,9 @@ x-app-common: &app-common
   environment:
     ICM_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     ICM_REDIS_URL: redis://redis:6379/0
+    ICM_STORAGE_ROOT: /app/data/storage
+  volumes:
+    - appdata:/app/data
   depends_on:
     postgres:
       condition: service_healthy
@@ -81,5 +84,6 @@ services:
 volumes:
   pgdata:
   redisdata:
+  appdata:
   caddy_data:
   caddy_config:

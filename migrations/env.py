@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, pool
 
 # Import every module that defines tables so they register on Base.metadata.
 import app.platform.auth.models  # noqa: F401,E402
+import app.workflow.models.entities  # noqa: F401,E402
 from app.platform.db.base import Base
 
 config = context.config

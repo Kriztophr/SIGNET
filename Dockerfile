@@ -17,7 +17,7 @@ COPY app ./app
 COPY alembic.ini ./
 COPY migrations ./migrations
 
-RUN groupadd -r icm && useradd -r -g icm -d /app icm && chown -R icm:icm /app
+RUN mkdir -p /app/data && groupadd -r icm && useradd -r -g icm -d /app icm && chown -R icm:icm /app
 USER icm
 
 ENV PATH="/app/.venv/bin:$PATH"
