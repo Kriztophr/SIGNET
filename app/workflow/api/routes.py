@@ -71,6 +71,15 @@ def get_template(
     return WorkflowRepository(db).get_template(user.tenant_id, template_id)
 
 
+@router.get("/templates/{template_id}/versions", response_model=list[VersionOut])
+def list_versions(
+    template_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[VersionOut]:
+    return WorkflowRepository(db).list_versions(user.tenant_id, template_id)
+
+
 @router.post("/templates/{template_id}/versions", response_model=VersionOut, status_code=201)
 def create_version(
     template_id: uuid.UUID,

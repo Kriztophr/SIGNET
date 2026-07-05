@@ -1,25 +1,51 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { EvalResult, EvalRun, RubricVersion } from "../api/types";
+import type {
+  EvalResult,
+  EvalRun,
+  EvalSuite,
+  Rubric,
+  RubricVersion,
+  WorkflowRun,
+} from "../api/types";
 import { can, useAuth } from "../auth";
 import { Card, Empty, ErrorNote, ShortId, StatusBadge, Time, useLoad } from "../components/ui";
 
 export function EvalsPage() {
-  const { data: awaiting, error } = useLoad(
+  const { user } = useAuth();
+  const [setup, setSetup] = useState(false);
+  const { data: awaiting, error, reload } = useLoad(
     () => api<EvalRun[]>("/evals/runs?status=awaiting_human_score"),
     [],
   );
-  const { data: recent } = useLoad(() => api<EvalRun[]>("/evals/runs?limit=20"), []);
+  const { data: recent, reload: reloadRecent } = useLoad(
+    () => api<EvalRun[]>("/evals/runs?limit=20"),
+    [],
+  );
 
   return (
     <>
       <header className="page-header">
         <h1>Evals</h1>
-        <p className="muted">Runs awaiting human scores, and recent activity.</p>
+        {can(user, "evaluator") ? (
+          <button className="accent" onClick={() => setSetup((s) => !s)}>
+            {setup ? "Close" : "New eval run"}
+          </button>
+        ) : null}
+        <p className="sub">Score workflow outputs against versioned rubrics.</p>
       </header>
       <ErrorNote error={error} />
-      <Card title="Awaiting your score">
+      {setup ? (
+        <EvalSetup
+          onStarted={() => {
+            setSetup(false);
+            reload();
+            reloadRecent();
+          }}
+        />
+      ) : null}
+      <Card tone="light" title="Awaiting your score">
         {awaiting && awaiting.length === 0 ? (
           <Empty label="Nothing awaits scoring." />
         ) : (
@@ -27,9 +53,198 @@ export function EvalsPage() {
         )}
       </Card>
       <Card title="Recent eval runs">
-        <EvalTable runs={recent ?? []} />
+        {recent && recent.length === 0 ? (
+          <Empty label="No eval runs yet — start one with 'New eval run'." />
+        ) : (
+          <EvalTable runs={recent ?? []} />
+        )}
       </Card>
     </>
+  );
+}
+
+function EvalSetup({ onStarted }: { onStarted: () => void }) {
+  const { data: suites, reload: reloadSuites } = useLoad(
+    () => api<EvalSuite[]>("/evals/suites"),
+    [],
+  );
+  const { data: rubrics, reload: reloadRubrics } = useLoad(
+    () => api<Rubric[]>("/evals/rubrics"),
+    [],
+  );
+  const { data: runs } = useLoad(() => api<WorkflowRun[]>("/workflow/runs?limit=50"), []);
+
+  const [suiteId, setSuiteId] = useState("");
+  const [rubricVersionId, setRubricVersionId] = useState("");
+  const [stageRunId, setStageRunId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Quick-create fields
+  const [suiteName, setSuiteName] = useState("Stage output quality");
+  const [minReviewers, setMinReviewers] = useState("1");
+  const [rubricName, setRubricName] = useState("Quality rubric");
+  const [criteria, setCriteria] = useState("accuracy:2, clarity:1");
+  const [passTotal, setPassTotal] = useState("10");
+
+  const gated = (runs ?? []).filter((r) => r.status === "paused_for_eval");
+
+  async function quickCreateSuite() {
+    setError(null);
+    try {
+      const suite = await api<EvalSuite>("/evals/suites", "POST", {
+        name: suiteName,
+        target_type: "stage_run",
+        config: { min_reviewers: Number(minReviewers) || 1 },
+        cases: [
+          { name: "assess the output", prompt_or_instruction: "Score the stage output." },
+        ],
+      });
+      setSuiteId(suite.id);
+      reloadSuites();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function quickCreateRubric() {
+    setError(null);
+    try {
+      const parsed = criteria.split(",").map((chunk) => {
+        const [key, weight] = chunk.split(":").map((s) => s.trim());
+        return { key, weight: Number(weight) || 1 };
+      });
+      const rubric = await api<Rubric>("/evals/rubrics", "POST", { name: rubricName });
+      const version = await api<RubricVersion>(
+        `/evals/rubrics/${rubric.id}/versions`,
+        "POST",
+        {
+          criteria: parsed,
+          score_scale: { min: 0, max: 5 },
+          pass_threshold: { min_total: Number(passTotal) || 1 },
+        },
+      );
+      setRubricVersionId(version.id);
+      reloadRubrics();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function startEvalRun() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/evals/runs", "POST", {
+        eval_suite_id: suiteId,
+        rubric_version_id: rubricVersionId,
+        target_ref_type: "stage_run",
+        target_ref_id: stageRunId.trim(),
+      });
+      onStarted();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Start an eval run">
+      <div className="grid-2">
+        <div>
+          <label>
+            Suite
+            <select value={suiteId} onChange={(e) => setSuiteId(e.target.value)}>
+              <option value="">— choose a suite —</option>
+              {(suites ?? []).map((suite) => (
+                <option key={suite.id} value={suite.id}>
+                  {suite.name} (min {suite.config_json.min_reviewers ?? 1} reviewer)
+                </option>
+              ))}
+            </select>
+          </label>
+          {suites && suites.length === 0 ? (
+            <div className="stage-builder">
+              <p className="muted">No suites yet — create one:</p>
+              <label>
+                Suite name
+                <input value={suiteName} onChange={(e) => setSuiteName(e.target.value)} />
+              </label>
+              <label>
+                Minimum reviewers
+                <input value={minReviewers} onChange={(e) => setMinReviewers(e.target.value)} />
+              </label>
+              <button className="ghost" onClick={quickCreateSuite}>
+                Create suite
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div>
+          <label>
+            Rubric version
+            <select value={rubricVersionId} onChange={(e) => setRubricVersionId(e.target.value)}>
+              <option value="">— choose a rubric version —</option>
+              {(rubrics ?? []).flatMap((rubric) =>
+                rubric.versions.map((version) => (
+                  <option key={version.id} value={version.id}>
+                    {rubric.name} v{version.version_number}
+                  </option>
+                )),
+              )}
+            </select>
+          </label>
+          {rubrics && rubrics.length === 0 ? (
+            <div className="stage-builder">
+              <p className="muted">No rubrics yet — create one (scale 0–5):</p>
+              <label>
+                Rubric name
+                <input value={rubricName} onChange={(e) => setRubricName(e.target.value)} />
+              </label>
+              <label>
+                Criteria (key:weight, comma-separated)
+                <input value={criteria} onChange={(e) => setCriteria(e.target.value)} />
+              </label>
+              <label>
+                Pass at weighted total ≥
+                <input value={passTotal} onChange={(e) => setPassTotal(e.target.value)} />
+              </label>
+              <button className="ghost" onClick={quickCreateRubric}>
+                Create rubric
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <label>
+        Target stage run
+        {gated.length > 0 ? (
+          <select value={stageRunId} onChange={(e) => setStageRunId(e.target.value)}>
+            <option value="">— choose a stage awaiting eval —</option>
+            {gated.map((run) => (
+              <option key={run.id} value={run.current_stage_run_id ?? ""}>
+                run {run.id.slice(0, 8)} — current stage (paused for eval)
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            value={stageRunId}
+            onChange={(e) => setStageRunId(e.target.value)}
+            placeholder="stage run id (find it in the run inspector)"
+          />
+        )}
+      </label>
+      <ErrorNote error={error} />
+      <button
+        className="accent"
+        disabled={busy || !suiteId || !rubricVersionId || !stageRunId}
+        onClick={startEvalRun}
+      >
+        {busy ? "Starting…" : "Start eval run"}
+      </button>
+    </Card>
   );
 }
 

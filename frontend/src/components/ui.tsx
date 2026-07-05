@@ -4,12 +4,49 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className={`badge badge-${status}`}>{status.replaceAll("_", " ")}</span>;
 }
 
-export function Card({ title, children }: { title?: string; children: ReactNode }) {
+export function Card({
+  title,
+  children,
+  tone,
+  actions,
+}: {
+  title?: string;
+  children: ReactNode;
+  tone?: "light" | "lime" | "lavender";
+  actions?: ReactNode;
+}) {
   return (
-    <section className="card">
-      {title ? <h2>{title}</h2> : null}
+    <section className={`card${tone ? ` ${tone}` : ""}`}>
+      {title || actions ? (
+        <div className="row spread" style={{ marginBottom: title ? 0 : 12 }}>
+          {title ? <h2>{title}</h2> : <span />}
+          {actions}
+        </div>
+      ) : null}
       {children}
     </section>
+  );
+}
+
+export function StatCard({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  icon: ReactNode;
+  tone?: "lime" | "lavender";
+}) {
+  return (
+    <div className={`stat${tone ? ` ${tone}` : ""}`}>
+      <div className="stat-top">
+        <span className="stat-icon">{icon}</span>
+      </div>
+      <span className="stat-value">{value}</span>
+      <span className="stat-label">{label}</span>
+    </div>
   );
 }
 

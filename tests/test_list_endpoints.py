@@ -90,3 +90,23 @@ def test_lists_are_tenant_scoped(client, db, operator_headers) -> None:
     other = login_headers(client, db, Role.operator, "other-lister@example.com")
     assert client.get("/workflow/runs", headers=other).json() == []
     assert client.get("/workflow/templates", headers=other).json() == []
+
+
+def test_list_template_versions(client, operator_headers) -> None:
+    version, _run = start_run(client, operator_headers)
+    templates = client.get("/workflow/templates", headers=operator_headers).json()
+    versions = client.get(
+        f"/workflow/templates/{templates[0]['id']}/versions", headers=operator_headers
+    ).json()
+    assert [v["id"] for v in versions] == [version["id"]]
+    assert len(versions[0]["stages"]) == 2
+
+
+def test_list_suites_and_rubrics(client, evaluator_headers) -> None:
+    suite = make_suite(client, evaluator_headers).json()
+    rubric_version = make_rubric_version(client, evaluator_headers).json()
+
+    suites = client.get("/evals/suites", headers=evaluator_headers).json()
+    assert [s["id"] for s in suites] == [suite["id"]]
+    rubrics = client.get("/evals/rubrics", headers=evaluator_headers).json()
+    assert rubrics[0]["versions"][0]["id"] == rubric_version["id"]

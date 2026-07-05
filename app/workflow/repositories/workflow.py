@@ -59,6 +59,19 @@ class WorkflowRepository:
             )
         )
 
+    def list_versions(
+        self, tenant_id: uuid.UUID, template_id: uuid.UUID
+    ) -> list[WorkflowTemplateVersion]:
+        template = self.get_template(tenant_id, template_id)
+        return list(
+            self._session.scalars(
+                select(WorkflowTemplateVersion)
+                .where(WorkflowTemplateVersion.workflow_template_id == template.id)
+                .options(selectinload(WorkflowTemplateVersion.stages))
+                .order_by(WorkflowTemplateVersion.version_number.desc())
+            )
+        )
+
     def next_version_number(self, template_id: uuid.UUID) -> int:
         current = self._session.scalar(
             select(func.max(WorkflowTemplateVersion.version_number)).where(

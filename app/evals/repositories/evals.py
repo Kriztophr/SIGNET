@@ -35,6 +35,28 @@ class EvalsRepository:
             raise NotFoundError(f"eval suite {suite_id} not found")
         return suite
 
+    def list_suites(self, tenant_id: uuid.UUID, limit: int = 100) -> list[EvalSuite]:
+        return list(
+            self._session.scalars(
+                select(EvalSuite)
+                .where(EvalSuite.tenant_id == tenant_id)
+                .options(selectinload(EvalSuite.cases))
+                .order_by(EvalSuite.created_at.desc())
+                .limit(min(limit, 500))
+            )
+        )
+
+    def list_rubrics(self, tenant_id: uuid.UUID, limit: int = 100) -> list[Rubric]:
+        return list(
+            self._session.scalars(
+                select(Rubric)
+                .where(Rubric.tenant_id == tenant_id)
+                .options(selectinload(Rubric.versions))
+                .order_by(Rubric.created_at.desc())
+                .limit(min(limit, 500))
+            )
+        )
+
     def get_rubric(self, tenant_id: uuid.UUID, rubric_id: uuid.UUID) -> Rubric:
         rubric = self._session.scalar(
             select(Rubric)

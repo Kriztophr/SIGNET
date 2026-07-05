@@ -2,11 +2,13 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, RequireAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { EvalDetailPage, EvalsPage } from "./pages/Evals";
+import { HomePage } from "./pages/Home";
 import { LoginPage } from "./pages/Login";
 import { PromotionsPage } from "./pages/Promotions";
 import { ResiliencePage } from "./pages/Resilience";
 import { ReviewDetailPage, ReviewsPage } from "./pages/Reviews";
 import { RunDetailPage, RunsPage } from "./pages/Runs";
+import { WorkflowsPage } from "./pages/Workflows";
 
 export function App() {
   return (
@@ -21,7 +23,8 @@ export function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<Navigate to="/reviews" replace />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
             <Route path="/reviews" element={<ReviewsPage />} />
             <Route path="/reviews/:taskId" element={<ReviewDetailPage />} />
             <Route path="/evals" element={<EvalsPage />} />

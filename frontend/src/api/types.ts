@@ -21,6 +21,47 @@ export interface TokenResponse {
   token_type: string;
 }
 
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  status: string;
+  created_at: string;
+}
+
+export interface StageDefinition {
+  id: string;
+  stage_key: string;
+  display_name: string;
+  order_index: number;
+  review_required: boolean;
+  eval_required: boolean;
+}
+
+export interface TemplateVersion {
+  id: string;
+  workflow_template_id: string;
+  version_number: number;
+  published_at: string | null;
+  stages: StageDefinition[];
+}
+
+export interface EvalSuite {
+  id: string;
+  name: string;
+  target_type: string;
+  config_json: { min_reviewers?: number };
+  created_at: string;
+}
+
+export interface Rubric {
+  id: string;
+  name: string;
+  description: string;
+  versions: RubricVersion[];
+}
+
 export interface WorkflowRun {
   id: string;
   status: string;

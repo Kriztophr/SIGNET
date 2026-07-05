@@ -59,6 +59,24 @@ def create_suite(
     return suite
 
 
+@router.get("/suites", response_model=list[SuiteOut])
+def list_suites(
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[SuiteOut]:
+    return EvalsRepository(db).list_suites(user.tenant_id, limit)
+
+
+@router.get("/rubrics", response_model=list[RubricOut])
+def list_rubrics(
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[RubricOut]:
+    return EvalsRepository(db).list_rubrics(user.tenant_id, limit)
+
+
 @router.get("/suites/{suite_id}", response_model=SuiteOut)
 def get_suite(
     suite_id: uuid.UUID,
