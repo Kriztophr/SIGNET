@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 
 from app.platform.auth.models import Role, User
 from app.platform.auth.passwords import dummy_hash, hash_password, verify_password
+from app.platform.errors import DomainValidationError
+
+MIN_PASSWORD_LENGTH = 12
 
 
 class AuthService:
@@ -20,6 +23,10 @@ class AuthService:
         password: str,
         role: Role,
     ) -> User:
+        if len(password) < MIN_PASSWORD_LENGTH:
+            raise DomainValidationError(
+                f"password must be at least {MIN_PASSWORD_LENGTH} characters"
+            )
         user = User(
             tenant_id=tenant_id,
             email=email.strip().lower(),

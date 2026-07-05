@@ -24,9 +24,37 @@ class Settings(BaseSettings):
     secret_key: str = "dev-only-change-me-never-use-in-production"
     access_token_expire_minutes: int = 60
 
+    # Comma-separated Host allowlist; "*" is acceptable only outside production.
+    allowed_hosts: str = "*"
+
+    login_max_failures: int = 5
+    login_window_seconds: int = 900
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        return [host.strip() for host in self.allowed_hosts.split(",") if host.strip()]
+
+
+INSECURE_DEFAULT_SECRET = "dev-only-change-me-never-use-in-production"
+
+
+def validate_production_settings(settings: Settings) -> None:
+    """Fail closed: refuse to boot production with insecure configuration."""
+    if not settings.is_production:
+        return
+    problems = []
+    if settings.secret_key == INSECURE_DEFAULT_SECRET or len(settings.secret_key) < 32:
+        problems.append("ICM_SECRET_KEY must be a strong random value of at least 32 characters")
+    if settings.debug:
+        problems.append("ICM_DEBUG must be false in production")
+    if settings.allowed_hosts.strip() in ("", "*"):
+        problems.append("ICM_ALLOWED_HOSTS must name the real hostname(s), not '*'")
+    if problems:
+        raise RuntimeError("insecure production configuration: " + "; ".join(problems))
 
 
 @lru_cache

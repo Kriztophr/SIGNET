@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.environment.api.routes import router as environment_router
 from app.evals.api.routes import router as evals_router
@@ -10,11 +11,13 @@ from app.platform.errors import (
     ForbiddenError,
     InvalidStateError,
     NotFoundError,
+    ThrottledError,
 )
 from app.platform.observability.correlation import CorrelationIdMiddleware
 from app.platform.observability.health import router as health_router
 from app.platform.observability.logging import configure_logging
-from app.platform.settings.config import get_settings
+from app.platform.observability.security_headers import SecurityHeadersMiddleware
+from app.platform.settings.config import get_settings, validate_production_settings
 from app.resilience.api.routes import router as resilience_router
 from app.workflow.api.routes import router as workflow_router
 
@@ -23,6 +26,7 @@ _ERROR_STATUS = {
     ForbiddenError: 403,
     InvalidStateError: 409,
     DomainValidationError: 422,
+    ThrottledError: 429,
 }
 
 
@@ -39,6 +43,7 @@ def _register_error_handlers(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    validate_production_settings(settings)  # fail closed on insecure production config
     configure_logging()
     app = FastAPI(
         title=settings.app_name,
@@ -49,6 +54,8 @@ def create_app() -> FastAPI:
         openapi_url=None if settings.is_production else "/openapi.json",
     )
     app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts_list)
     _register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)

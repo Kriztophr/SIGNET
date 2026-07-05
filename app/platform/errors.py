@@ -16,3 +16,7 @@ class DomainValidationError(DomainError):
 
 class ForbiddenError(DomainError):
     """Caller is authenticated but not entitled to perform this action."""
+
+
+class ThrottledError(DomainError):
+    """Caller exceeded a rate limit; retry later."""

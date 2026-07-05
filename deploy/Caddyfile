@@ -1,6 +1,10 @@
 {$DOMAIN:localhost} {
 	encode gzip
 
+	request_body {
+		max_size 10MB
+	}
+
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
