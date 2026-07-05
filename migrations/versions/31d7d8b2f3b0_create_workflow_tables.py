@@ -133,12 +133,12 @@ def upgrade() -> None:
         sa.UniqueConstraint(
             "workflow_template_version_id",
             "order_index",
-            name=op.f("uq_stage_definitions_workflow_template_version_id"),
+            name=op.f("uq_stage_definitions_version_order"),
         ),
         sa.UniqueConstraint(
             "workflow_template_version_id",
             "stage_key",
-            name=op.f("uq_stage_definitions_workflow_template_version_id"),
+            name=op.f("uq_stage_definitions_version_stage_key"),
         ),
     )
     op.create_index(

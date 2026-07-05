@@ -98,9 +98,19 @@ class WorkflowTemplateVersion(UuidPkMixin, TimestampedMixin, Base):
 
 class StageDefinition(UuidPkMixin, TimestampedMixin, Base):
     __tablename__ = "stage_definitions"
+    # Explicit names: both constraints share a first column, so the convention's
+    # %(column_0_name)s pattern would generate colliding names (Postgres rejects).
     __table_args__ = (
-        UniqueConstraint("workflow_template_version_id", "stage_key"),
-        UniqueConstraint("workflow_template_version_id", "order_index"),
+        UniqueConstraint(
+            "workflow_template_version_id",
+            "stage_key",
+            name="uq_stage_definitions_version_stage_key",
+        ),
+        UniqueConstraint(
+            "workflow_template_version_id",
+            "order_index",
+            name="uq_stage_definitions_version_order",
+        ),
     )
 
     workflow_template_version_id: Mapped[uuid.UUID] = mapped_column(
