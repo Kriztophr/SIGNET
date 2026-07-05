@@ -1,0 +1,34 @@
+# Overlay for VPS hosts where Coolify's Traefik already owns ports 80/443.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.coolify.yml up -d --build
+#
+# Caddy stops binding host ports and instead joins the external `coolify`
+# network; Traefik terminates TLS for ${DOMAIN} (Let's Encrypt) and forwards
+# to Caddy, which serves the console and proxies API paths as usual.
+
+networks:
+  coolify:
+    external: true
+
+services:
+  caddy:
+    ports: !override []
+    volumes:
+      - ./deploy/Caddyfile.behind-proxy:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - default
+      - coolify
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: coolify
+      traefik.http.routers.icm-https.rule: Host(`${DOMAIN}`)
+      traefik.http.routers.icm-https.entrypoints: https
+      traefik.http.routers.icm-https.tls.certresolver: letsencrypt
+      traefik.http.routers.icm-https.service: icm
+      traefik.http.routers.icm-http.rule: Host(`${DOMAIN}`)
+      traefik.http.routers.icm-http.entrypoints: http
+      traefik.http.routers.icm-http.middlewares: icm-redirect
+      traefik.http.routers.icm-http.service: icm
+      traefik.http.middlewares.icm-redirect.redirectscheme.scheme: https
+      traefik.http.services.icm.loadbalancer.server.port: "80"
