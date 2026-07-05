@@ -50,17 +50,36 @@ class PromotionEvidenceEvaluator:
         if requirements.get("require_no_open_disagreements", True) and disagreement_count:
             blocking.append(f"{disagreement_count} unresolved review disagreement(s)")
         drift_count = self._active_drift(tenant_id, pack_ids, requirements, blocking)
+        resilience = self._resilience(tenant_id, version_id, blocking)
 
         evidence = {
             "regression_packs": regression_evidence,
             "eval_runs": eval_evidence,
             "open_disagreements": disagreement_count,
             "active_drift_signals": drift_count,
-            # Resilience thresholds land in phase 9; recorded as a seam until then.
-            "resilience": "not_evaluated",
+            "resilience": resilience,
             "blocking_reasons": list(blocking),
         }
         return evidence, blocking
+
+    def _resilience(self, tenant_id: uuid.UUID, version_id: uuid.UUID, blocking: list[str]) -> dict:
+        """Spec 17.2: resilience thresholds must be met where applicable — both
+        thresholds scoped to this environment version and tenant-wide ones."""
+        # Local import: environment consumes resilience policy at the gate only.
+        from app.resilience.services.policy import ResiliencePolicyService
+
+        service = ResiliencePolicyService(self._session)
+        results: list[dict] = []
+        breaches: list[str] = []
+        for scope_type, scope_ref in (
+            ("environment_template_version", str(version_id)),
+            ("tenant", "*"),
+        ):
+            scope_results, scope_breaches = service.evaluate_scope(tenant_id, scope_type, scope_ref)
+            results.extend(scope_results)
+            breaches.extend(scope_breaches)
+        blocking.extend(breaches)
+        return {"thresholds_evaluated": len(results), "results": results, "breaches": breaches}
 
     def _regression_evidence(
         self,

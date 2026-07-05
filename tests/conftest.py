@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 import app.environment.models.entities  # noqa: F401 — register tables on Base.metadata
 import app.evals.models.entities  # noqa: F401 — register tables on Base.metadata
 import app.platform.auth.models  # noqa: F401 — register tables on Base.metadata
+import app.resilience.models.entities  # noqa: F401 — register tables on Base.metadata
 import app.workflow.models.entities  # noqa: F401 — register tables on Base.metadata
 from app.main import create_app
 from app.platform.auth.models import Role

@@ -30,7 +30,7 @@ Where the two conflict, the master backend platform spec wins.
 | Governance | `app/governance` | Policy checks, approvals, review, audit, escalation | ✅ built |
 | Evals | `app/evals` | Scoring, baselines, regression packs, calibration, drift | ✅ built (calibration deferred) |
 | Environment | `app/environment` | Reusable templates, profiles, references, promotion | ✅ built |
-| Human Capacity Resilience | `app/resilience` | Human capability measurement, fallback readiness, reversibility | ⏳ planned |
+| Human Capacity Resilience | `app/resilience` | Human capability measurement, fallback readiness, reversibility | ✅ built |
 | Async jobs | `app/tasks` | Celery task entry points | ✅ wired (broker + ping) |
 
 ## How the workflow substrate works
@@ -70,8 +70,19 @@ Where the two conflict, the master backend platform spec wins.
    regression packs' latest pass rates, open review disagreements, and active drift
    signals, then either lands the promotion in `approval_pending` or fails it closed to
    `blocked` with the reasons recorded. Approval re-checks evidence so nothing that
-   regressed since the request can slip through. Resilience thresholds (§17.2) plug in
-   here once that module lands.
+   regressed since the request can slip through — including **resilience thresholds**
+   (§17.2) scoped to the version or tenant-wide.
+8. **Keep humans capable**: the resilience module measures whether people can still
+   verify, override, and reconstruct critical work without AI. Critical capabilities
+   (`POST /resilience/capabilities`) are assessed via human-capacity runs scored per
+   dimension against capability rubrics; qualification updates capability profiles and
+   competency records. **Fallback drills** (`POST /resilience/fallback-drills`, AI off /
+   reduced / delayed) produce readiness assessments; **reversibility assessments**
+   record whether human-led operation can be restored; **coverage snapshots** flag
+   capabilities with too few qualified humans. **Resilience thresholds**
+   (`POST /resilience/thresholds`: reversibility_score, fallback_readiness,
+   coverage_ratio) are evaluated fail-closed at promotion time — no evidence is a
+   breach, not a skip — and every evaluation lands as a durable `ResilienceDecision`.
 
 ## Architecture conventions
 

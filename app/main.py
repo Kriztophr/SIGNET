@@ -15,6 +15,7 @@ from app.platform.observability.correlation import CorrelationIdMiddleware
 from app.platform.observability.health import router as health_router
 from app.platform.observability.logging import configure_logging
 from app.platform.settings.config import get_settings
+from app.resilience.api.routes import router as resilience_router
 from app.workflow.api.routes import router as workflow_router
 
 _ERROR_STATUS = {
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(governance_router)
     app.include_router(evals_router)
     app.include_router(environment_router)
+    app.include_router(resilience_router)
     return app
 
 
