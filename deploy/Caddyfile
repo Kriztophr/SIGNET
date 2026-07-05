@@ -12,5 +12,11 @@
 		-Server
 	}
 
-	reverse_proxy api:8000
+	@api path /auth/* /users/* /health /workflow/* /governance/* /evals/* /environment/* /resilience/* /docs* /openapi.json
+	reverse_proxy @api api:8000
+
+	# Everything else is the operations console (SPA with client-side routing).
+	root * /srv
+	try_files {path} /index.html
+	file_server
 }

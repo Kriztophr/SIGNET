@@ -97,6 +97,23 @@ Where the two conflict, the master backend platform spec wins.
 - Auth: JWT bearer tokens (`POST /auth/login`), roles per spec §20, `require_roles(...)`
   guards on mutations. First admin via `python -m app.platform.auth.bootstrap`.
 
+## Operations console (frontend)
+
+A React + Vite + TypeScript SPA in [frontend/](frontend/) covering the human-in-the-loop
+surfaces: the **review queue** (approve / edit / reject / escalate with rationale),
+**eval scoring** against rubric criteria, the **run inspector** (stages, ICM context
+manifests, versioned artifacts, operator actions), the **promotion dashboard** (evidence
+and one-click approval), and the **resilience console** (coverage + drift). It talks to
+the same API with the same JWTs and role rules; in production Caddy serves it and proxies
+API paths on the same origin, so there is no CORS surface.
+
+```sh
+cd frontend
+npm install
+npm run dev        # console on :5173, proxying API calls to uvicorn on :8000
+npm run build      # typecheck + production build (CI-enforced)
+```
+
 ## Development
 
 Requires [uv](https://docs.astral.sh/uv/); it provisions the pinned Python automatically.

@@ -97,6 +97,16 @@ class EnvironmentRepository:
             raise NotFoundError(f"workspace blueprint {blueprint_id} not found")
         return blueprint
 
+    def list_promotions(self, tenant_id: uuid.UUID, limit: int = 100) -> list[EnvironmentPromotion]:
+        return list(
+            self._session.scalars(
+                select(EnvironmentPromotion)
+                .where(EnvironmentPromotion.tenant_id == tenant_id)
+                .order_by(EnvironmentPromotion.created_at.desc())
+                .limit(min(limit, 500))
+            )
+        )
+
     def get_promotion(self, tenant_id: uuid.UUID, promotion_id: uuid.UUID) -> EnvironmentPromotion:
         promotion = self._session.scalar(
             select(EnvironmentPromotion).where(

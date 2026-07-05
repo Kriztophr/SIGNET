@@ -159,6 +159,15 @@ def create_promotion(
     return promotion
 
 
+@router.get("/promotions", response_model=list[PromotionOut])
+def list_promotions(
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[PromotionOut]:
+    return EnvironmentRepository(db).list_promotions(user.tenant_id, limit)
+
+
 @router.get("/promotions/{promotion_id}", response_model=PromotionOut)
 def get_promotion(
     promotion_id: uuid.UUID,

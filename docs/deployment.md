@@ -4,6 +4,11 @@ The whole stack runs on one VPS via Docker Compose: Caddy (edge, ports 80/443) �
 FastAPI api container → Postgres, Redis, and a Celery worker. Nothing except Caddy
 binds a host port; Postgres and Redis are reachable only on the internal Compose network.
 
+The Caddy image is built from `deploy/Dockerfile.caddy`: it compiles the operations
+console (React SPA in `frontend/`) and serves it at the domain root, proxying API paths
+to the api container. `docker compose up -d --build` rebuilds it whenever the frontend
+changes — no separate frontend deployment step exists.
+
 ## First deployment
 
 1. **Provision** a VPS (4 GB RAM is sufficient for the MVP) running a recent Ubuntu LTS.

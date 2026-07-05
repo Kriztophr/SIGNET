@@ -44,6 +44,24 @@ def create_template(
     return template
 
 
+@router.get("/templates", response_model=list[TemplateOut])
+def list_templates(
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[TemplateOut]:
+    return WorkflowRepository(db).list_templates(user.tenant_id, limit)
+
+
+@router.get("/runs", response_model=list[RunOut])
+def list_runs(
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[RunOut]:
+    return WorkflowRepository(db).list_runs(user.tenant_id, limit)
+
+
 @router.get("/templates/{template_id}", response_model=TemplateOut)
 def get_template(
     template_id: uuid.UUID,
@@ -141,6 +159,17 @@ def get_context_manifest(
     db: Session = Depends(get_db),
 ) -> ContextManifestOut:
     return WorkflowRepository(db).get_context_manifest(user.tenant_id, stage_run_id)
+
+
+@router.get("/stage-runs/{stage_run_id}/artifacts", response_model=list[ArtifactOut])
+def list_stage_artifacts(
+    stage_run_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ArtifactOut]:
+    repo = WorkflowRepository(db)
+    stage_run = repo.get_stage_run(user.tenant_id, stage_run_id)
+    return repo.artifacts_for_stage_run(stage_run.id)
 
 
 @router.post("/stage-runs/{stage_run_id}/artifacts", response_model=ArtifactOut, status_code=201)

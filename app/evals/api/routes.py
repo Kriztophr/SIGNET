@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.evals.models.entities import EvalRunStatus
 from app.evals.regressions.service import BaselineService, RegressionPackService
 from app.evals.repositories.evals import EvalsRepository
 from app.evals.rubrics.service import RubricService
@@ -127,6 +128,25 @@ def create_run(
     )
     db.commit()
     return run
+
+
+@router.get("/runs", response_model=list[EvalRunOut])
+def list_runs(
+    status: EvalRunStatus | None = None,
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[EvalRunOut]:
+    return EvalsRepository(db).list_runs(user.tenant_id, status, limit)
+
+
+@router.get("/rubric-versions/{version_id}", response_model=RubricVersionOut)
+def get_rubric_version(
+    version_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RubricVersionOut:
+    return EvalsRepository(db).get_rubric_version(user.tenant_id, version_id)
 
 
 @router.get("/runs/{run_id}", response_model=EvalRunOut)

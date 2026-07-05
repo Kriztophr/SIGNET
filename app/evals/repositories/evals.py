@@ -73,6 +73,19 @@ class EvalsRepository:
             raise NotFoundError(f"eval run {run_id} not found")
         return run
 
+    def list_runs(
+        self,
+        tenant_id: uuid.UUID,
+        status: EvalRunStatus | None = None,
+        limit: int = 100,
+    ) -> list[EvalRun]:
+        stmt = select(EvalRun).where(EvalRun.tenant_id == tenant_id)
+        if status is not None:
+            stmt = stmt.where(EvalRun.status == status)
+        return list(
+            self._session.scalars(stmt.order_by(EvalRun.created_at.desc()).limit(min(limit, 500)))
+        )
+
     def scores_for_run(self, eval_run_id: uuid.UUID) -> list[ReviewerScore]:
         return list(
             self._session.scalars(

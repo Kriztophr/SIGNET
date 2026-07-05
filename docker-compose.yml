@@ -67,14 +67,15 @@ services:
     restart: unless-stopped
 
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.caddy
     ports:
       - "80:80"
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

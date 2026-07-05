@@ -31,6 +31,26 @@ class WorkflowRepository:
             raise NotFoundError(f"workflow template {template_id} not found")
         return template
 
+    def list_templates(self, tenant_id: uuid.UUID, limit: int = 100) -> list[WorkflowTemplate]:
+        return list(
+            self._session.scalars(
+                select(WorkflowTemplate)
+                .where(WorkflowTemplate.tenant_id == tenant_id)
+                .order_by(WorkflowTemplate.created_at.desc())
+                .limit(min(limit, 500))
+            )
+        )
+
+    def list_runs(self, tenant_id: uuid.UUID, limit: int = 100) -> list[WorkflowRun]:
+        return list(
+            self._session.scalars(
+                select(WorkflowRun)
+                .where(WorkflowRun.tenant_id == tenant_id)
+                .order_by(WorkflowRun.created_at.desc())
+                .limit(min(limit, 500))
+            )
+        )
+
     def get_template_by_slug(self, tenant_id: uuid.UUID, slug: str) -> WorkflowTemplate | None:
         return self._session.scalar(
             select(WorkflowTemplate).where(
