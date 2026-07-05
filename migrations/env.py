@@ -5,6 +5,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 # Import every module that defines tables so they register on Base.metadata.
+import app.environment.models.entities  # noqa: F401,E402
 import app.evals.models.entities  # noqa: F401,E402
 import app.governance.models.entities  # noqa: F401,E402
 import app.platform.auth.models  # noqa: F401,E402

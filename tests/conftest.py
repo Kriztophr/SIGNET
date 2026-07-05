@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.environment.models.entities  # noqa: F401 — register tables on Base.metadata
 import app.evals.models.entities  # noqa: F401 — register tables on Base.metadata
 import app.platform.auth.models  # noqa: F401 — register tables on Base.metadata
 import app.workflow.models.entities  # noqa: F401 — register tables on Base.metadata

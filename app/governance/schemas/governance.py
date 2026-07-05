@@ -86,6 +86,8 @@ class AuditEventOut(BaseModel):
     workflow_run_id: uuid.UUID | None
     stage_run_id: uuid.UUID | None
     review_task_id: uuid.UUID | None
+    eval_run_id: uuid.UUID | None
+    environment_promotion_id: uuid.UUID | None
     actor_type: str
     actor_id: uuid.UUID | None
     payload_json: dict

@@ -29,7 +29,7 @@ Where the two conflict, the master backend platform spec wins.
 | Workflow | `app/workflow` | Staged execution, context assembly, artifact handoff | ✅ built |
 | Governance | `app/governance` | Policy checks, approvals, review, audit, escalation | ✅ built |
 | Evals | `app/evals` | Scoring, baselines, regression packs, calibration, drift | ✅ built (calibration deferred) |
-| Environment | `app/environment` | Reusable templates, profiles, references, promotion | ⏳ planned |
+| Environment | `app/environment` | Reusable templates, profiles, references, promotion | ✅ built |
 | Human Capacity Resilience | `app/resilience` | Human capability measurement, fallback readiness, reversibility | ⏳ planned |
 | Async jobs | `app/tasks` | Celery task entry points | ✅ wired (broker + ping) |
 
@@ -62,6 +62,16 @@ Where the two conflict, the master backend platform spec wins.
    for a fresh eval run. Regression packs aggregate the latest decisions per suite —
    missing evidence counts as failure — and a pass rate below the matching baseline
    raises a `DriftSignal` (`GET /evals/drift-signals`).
+7. **Package and promote**: business-specific operating context is captured as versioned
+   **environment templates** with prompt / tool / policy profiles, reference bundles, and
+   workspace blueprints (`POST /environment/templates`, `.../versions`). Promoting a
+   version to `approved` (`POST /environment/promotions`) is **evidence-gated** (spec §17):
+   the platform gathers the eval runs linked to that environment version, the named
+   regression packs' latest pass rates, open review disagreements, and active drift
+   signals, then either lands the promotion in `approval_pending` or fails it closed to
+   `blocked` with the reasons recorded. Approval re-checks evidence so nothing that
+   regressed since the request can slip through. Resilience thresholds (§17.2) plug in
+   here once that module lands.
 
 ## Architecture conventions
 
