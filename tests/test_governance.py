@@ -1,26 +1,4 @@
-import uuid
-
-import pytest
-
-from app.platform.auth.models import Role
-from tests.conftest import login_headers
 from tests.test_workflow import create_version, submit
-
-
-@pytest.fixture
-def tenant_id(client, operator_headers) -> uuid.UUID:
-    me = client.get("/users/me", headers=operator_headers).json()
-    return uuid.UUID(me["tenant_id"])
-
-
-@pytest.fixture
-def reviewer_headers(client, db, tenant_id) -> dict:
-    return login_headers(client, db, Role.reviewer, "reviewer@example.com", tenant_id=tenant_id)
-
-
-@pytest.fixture
-def admin_headers(client, db, tenant_id) -> dict:
-    return login_headers(client, db, Role.admin, "admin@example.com", tenant_id=tenant_id)
 
 
 def start_reviewed_run(client, operator_headers) -> tuple[dict, str, dict]:

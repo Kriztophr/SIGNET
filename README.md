@@ -28,7 +28,7 @@ Where the two conflict, the master backend platform spec wins.
 | Shared core | `app/platform` | Auth, RBAC, DB, storage, events, observability | ✅ built |
 | Workflow | `app/workflow` | Staged execution, context assembly, artifact handoff | ✅ built |
 | Governance | `app/governance` | Policy checks, approvals, review, audit, escalation | ✅ built |
-| Evals | `app/evals` | Scoring, baselines, regression packs, calibration, drift | ⏳ planned |
+| Evals | `app/evals` | Scoring, baselines, regression packs, calibration, drift | ✅ built (calibration deferred) |
 | Environment | `app/environment` | Reusable templates, profiles, references, promotion | ⏳ planned |
 | Human Capacity Resilience | `app/resilience` | Human capability measurement, fallback readiness, reversibility | ⏳ planned |
 | Async jobs | `app/tasks` | Celery task entry points | ✅ wired (broker + ping) |
@@ -54,6 +54,14 @@ Where the two conflict, the master backend platform spec wins.
    (fails the run), or **escalate** (opens an admin task). Every control decision is
    recorded as a `ReviewDecision` plus an audit event
    (`GET /governance/audit-events`, auditor/admin only).
+6. **Evaluate**: stages marked `eval_required` pause again after review
+   (`awaiting_eval`) until an eval run against the stage produces a passing decision.
+   Eval runs score targets (artifacts, stage runs, workflow runs) against **versioned
+   rubrics** (`POST /evals/runs`, `POST /evals/reviewer-scores`); multi-reviewer suites
+   decide by majority, record any split as a `DisagreementRecord`, and tie votes wait
+   for a fresh eval run. Regression packs aggregate the latest decisions per suite —
+   missing evidence counts as failure — and a pass rate below the matching baseline
+   raises a `DriftSignal` (`GET /evals/drift-signals`).
 
 ## Architecture conventions
 

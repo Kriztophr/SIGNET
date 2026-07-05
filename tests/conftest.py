@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.evals.models.entities  # noqa: F401 — register tables on Base.metadata
 import app.platform.auth.models  # noqa: F401 — register tables on Base.metadata
 import app.workflow.models.entities  # noqa: F401 — register tables on Base.metadata
 from app.main import create_app
@@ -70,3 +71,26 @@ def login_headers(client: TestClient, db: Session, role: Role, email: str, tenan
 @pytest.fixture
 def operator_headers(client, db) -> dict:
     return login_headers(client, db, Role.operator, "operator@example.com")
+
+
+@pytest.fixture
+def tenant_id(client, operator_headers):
+    import uuid
+
+    me = client.get("/users/me", headers=operator_headers).json()
+    return uuid.UUID(me["tenant_id"])
+
+
+@pytest.fixture
+def evaluator_headers(client, db, tenant_id) -> dict:
+    return login_headers(client, db, Role.evaluator, "evaluator@example.com", tenant_id=tenant_id)
+
+
+@pytest.fixture
+def reviewer_headers(client, db, tenant_id) -> dict:
+    return login_headers(client, db, Role.reviewer, "reviewer@example.com", tenant_id=tenant_id)
+
+
+@pytest.fixture
+def admin_headers(client, db, tenant_id) -> dict:
+    return login_headers(client, db, Role.admin, "admin@example.com", tenant_id=tenant_id)

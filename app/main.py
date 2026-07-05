@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.evals.api.routes import router as evals_router
 from app.governance.api.routes import router as governance_router
 from app.platform.auth.api import router as auth_router
 from app.platform.errors import (
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(workflow_router)
     app.include_router(governance_router)
+    app.include_router(evals_router)
     return app
 
 

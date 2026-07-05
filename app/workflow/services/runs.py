@@ -85,7 +85,7 @@ class StageExecutionCoordinator:
             ReviewTaskService(self._session, self._storage).request_review(run, stage_run, stage)
             return run
 
-        return self._finalize_stage(stage_run)
+        return self._gate_eval_or_finalize(stage_run)
 
     def resume_approved_stage(self, stage_run: StageRun) -> WorkflowRun:
         """Called by governance once a review resolves in favour of the stage."""
@@ -96,7 +96,47 @@ class StageExecutionCoordinator:
         stage_run.status = StageRunStatus.approved
         stage_run.run.status = WorkflowRunStatus.running
         self._session.flush()
+        # Review resolves first so evals score the final (possibly edited) artifact;
+        # an eval-gated stage now pauses again for its eval evidence.
+        return self._gate_eval_or_finalize(stage_run)
+
+    def resume_eval_passed_stage(self, stage_run: StageRun) -> WorkflowRun:
+        """Called by evals once a passing decision lands for an eval-gated stage."""
+        if stage_run.status is not StageRunStatus.awaiting_eval:
+            raise InvalidStateError(
+                f"only a stage awaiting eval can resume (stage run is {stage_run.status})"
+            )
+        stage_run.run.status = WorkflowRunStatus.running
+        self._session.flush()
         return self._finalize_stage(stage_run)
+
+    def _gate_eval_or_finalize(self, stage_run: StageRun) -> WorkflowRun:
+        """Both completion paths (direct and post-review) funnel through here.
+
+        Checking for an existing decision at gate entry closes the deadlock where
+        an eval completed before the stage reached the gate would pause it forever,
+        and lets a later eval run unblock a needs_adjudication stage.
+        """
+        run = stage_run.run
+        stage = stage_run.stage_definition
+        if not stage.eval_required:
+            return self._finalize_stage(stage_run)
+
+        from app.evals.models.entities import EvalDecisionType
+        from app.evals.repositories.evals import EvalsRepository
+
+        decision = EvalsRepository(self._session).latest_completed_decision_for_stage_run(
+            stage_run.id
+        )
+        if decision is not None and decision.decision_type is EvalDecisionType.passed:
+            return self._finalize_stage(stage_run)
+        if decision is not None and decision.decision_type is EvalDecisionType.failed:
+            return self.fail_stage(stage_run, f"failed eval run {decision.eval_run_id}")
+
+        stage_run.status = StageRunStatus.awaiting_eval
+        run.status = WorkflowRunStatus.paused_for_eval
+        self._session.flush()
+        return run
 
     def _finalize_stage(self, stage_run: StageRun) -> WorkflowRun:
         run = stage_run.run
@@ -138,7 +178,13 @@ class StageExecutionCoordinator:
         return run
 
     def fail_stage(self, stage_run: StageRun, error_summary: str) -> WorkflowRun:
-        if stage_run.status not in (StageRunStatus.running, StageRunStatus.awaiting_review):
+        failable = (
+            StageRunStatus.running,
+            StageRunStatus.awaiting_review,
+            StageRunStatus.awaiting_eval,
+            StageRunStatus.approved,
+        )
+        if stage_run.status not in failable:
             raise InvalidStateError(f"cannot fail a stage in state {stage_run.status}")
         run = stage_run.run
         stage_run.status = StageRunStatus.failed
