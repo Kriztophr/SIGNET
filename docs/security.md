@@ -89,6 +89,22 @@ This document describes the platform's security controls, per master spec §23
 - GitHub Actions CI (`.github/workflows/ci.yml`) runs lint, format check, and the
   full test suite on every push and pull request.
 
+## Host firewall on Docker hosts (important gotcha)
+
+Docker-published container ports **bypass ufw** — Docker inserts its own iptables
+rules ahead of ufw's, so `ufw deny` has no effect on them. Blocking a published
+port from the internet requires rules in the `DOCKER-USER` chain, matching the
+original (pre-DNAT) destination port. The production VPS applies this pattern in
+`/etc/ufw/after.rules` (marker block `ICM DOCKER-USER HARDENING`): host rules
+allow rate-limited 22 plus 80/443, and `DOCKER-USER` drops internet traffic to
+Coolify (8000), Traefik's admin port (8080), and Coolify realtime (6001–6002).
+Reach the Coolify UI through an SSH tunnel instead:
+`ssh -L 8000:localhost:8000 root@<vps>` → `http://localhost:8000`.
+
+Database backups: `/etc/cron.d/icm-backup` runs `pg_dump` nightly at 03:15 to
+`/var/backups/icm/` with 14-day retention (`/usr/local/bin/icm-backup.sh`),
+alongside Hostinger's weekly whole-VPS backups.
+
 ## Known limitations (documented, not hidden)
 
 - Login throttling is per-process (see above).
