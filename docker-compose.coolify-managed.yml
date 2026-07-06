@@ -1,0 +1,102 @@
+# Standalone Compose file for deploying as a Coolify "Docker Compose" resource.
+#
+# Coolify owns the proxy, TLS, env injection, and deploys — this file just
+# declares the services. Point Coolify's repository at this repo and set this
+# as the compose path. Coolify assigns the domain to the `caddy` service via the
+# SERVICE_FQDN_CADDY magic variable (set the FQDN in the Coolify UI); Caddy then
+# serves the console and proxies API paths to the api service. Migrations run
+# automatically on api boot (deploy/api-entrypoint.sh).
+#
+# Required environment variables (set in the Coolify UI, not committed):
+#   POSTGRES_PASSWORD, ICM_SECRET_KEY, ICM_ALLOWED_HOSTS
+# ICM_ALLOWED_HOSTS must include the FQDN and 127.0.0.1 (api healthcheck).
+
+services:
+  caddy:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.caddy
+    environment:
+      # Coolify substitutes the domain you assign in its UI.
+      SERVICE_FQDN_CADDY: ${SERVICE_FQDN_CADDY:-}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ICM_DATABASE_URL: postgresql+psycopg://icm:${POSTGRES_PASSWORD}@postgres:5432/icm
+      ICM_REDIS_URL: redis://redis:6379/0
+      ICM_STORAGE_ROOT: /app/data/storage
+      ICM_ENVIRONMENT: production
+      ICM_DEBUG: "false"
+      ICM_SECRET_KEY: ${ICM_SECRET_KEY}
+      ICM_ALLOWED_HOSTS: ${ICM_ALLOWED_HOSTS}
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment:
+      ICM_DATABASE_URL: postgresql+psycopg://icm:${POSTGRES_PASSWORD}@postgres:5432/icm
+      ICM_REDIS_URL: redis://redis:6379/0
+      ICM_STORAGE_ROOT: /app/data/storage
+      ICM_ENVIRONMENT: production
+      ICM_SECRET_KEY: ${ICM_SECRET_KEY}
+      ICM_ALLOWED_HOSTS: ${ICM_ALLOWED_HOSTS}
+    volumes:
+      - appdata:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: icm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: icm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U icm -d icm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  appdata:

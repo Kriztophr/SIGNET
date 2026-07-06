@@ -27,7 +27,8 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      # Generous: the api applies migrations before uvicorn starts serving.
+      start_period: 40s
 
   worker:
     <<: *app-common

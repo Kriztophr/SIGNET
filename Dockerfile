@@ -16,12 +16,16 @@ RUN uv sync --frozen --no-dev
 COPY app ./app
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY deploy/api-entrypoint.sh /usr/local/bin/api-entrypoint.sh
 
-RUN mkdir -p /app/data && groupadd -r icm && useradd -r -g icm -d /app icm && chown -R icm:icm /app
+RUN chmod +x /usr/local/bin/api-entrypoint.sh \
+    && mkdir -p /app/data \
+    && groupadd -r icm && useradd -r -g icm -d /app icm && chown -R icm:icm /app
 USER icm
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# The API applies migrations on boot; the Celery worker overrides this command.
+CMD ["api-entrypoint.sh"]

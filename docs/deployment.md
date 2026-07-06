@@ -62,8 +62,29 @@ docker compose up -d --build   # rebuilds changed images, restarts only affected
 docker compose ps
 ```
 
-Run database migrations before restarting the api:
-`docker compose run --rm api alembic upgrade head`.
+Migrations apply automatically when the api container starts
+(`deploy/api-entrypoint.sh` runs `alembic upgrade head`, a no-op when already
+current), so a normal `docker compose up -d --build` migrates and serves in one
+step. To run them manually anyway: `docker compose run --rm api alembic upgrade head`.
+
+## Deploying with Coolify (recommended for this VPS)
+
+This VPS runs Coolify, which is purpose-built to own deploys, TLS, secrets, and
+logs — replacing the manual git-bundle-over-SSH pipeline. To migrate:
+
+1. Reach the Coolify dashboard: `ssh -L 8000:localhost:8000 root@<vps>` then open
+   `http://localhost:8000` (its port is firewalled off the public internet).
+2. Add this GitHub repository as a **Docker Compose** resource; set the compose
+   path to `docker-compose.coolify-managed.yml`.
+3. Set environment variables in the Coolify UI: `POSTGRES_PASSWORD`,
+   `ICM_SECRET_KEY` (48+ random chars), and `ICM_ALLOWED_HOSTS` (your FQDN plus
+   `127.0.0.1`). Assign the domain to the `caddy` service.
+4. Deploy, then enable **auto-deploy on push** so every push to `main` redeploys.
+5. Bootstrap the first admin once (Coolify terminal → the api container):
+   `ICM_BOOTSTRAP_ADMIN_EMAIL=you@example.com ICM_BOOTSTRAP_ADMIN_PASSWORD=… python -m app.platform.auth.bootstrap`.
+
+Coolify manages its own Traefik, so the `docker-compose.coolify.yml` Traefik-label
+overlay is only needed for the manual (non-Coolify) deployment path.
 
 ## Backups
 
