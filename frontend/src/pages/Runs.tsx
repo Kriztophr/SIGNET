@@ -141,6 +141,23 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
   return (
     <div className="two-col">
       <div>
+        <Card title="Stage">
+          <dl>
+            <dt>Status</dt>
+            <dd>
+              <StatusBadge status={stage?.status ?? "…"} />
+              {stage ? <span className="muted"> · attempt {stage.attempt_number}</span> : null}
+            </dd>
+            <dt>Started</dt>
+            <dd>
+              <Time value={stage?.started_at ?? null} />
+            </dd>
+            <dt>Completed</dt>
+            <dd>
+              <Time value={stage?.completed_at ?? null} />
+            </dd>
+          </dl>
+        </Card>
         <Card title="Context manifest (ICM layers)">
           {manifest ? (
             <dl>

@@ -24,6 +24,31 @@
   color-scheme: dark;
 }
 
+/* ================= light theme ================= */
+/* Remap the semantic tokens; the rest of the stylesheet reads them via var(). */
+:root[data-theme="light"] {
+  --bg: #f3efe9;
+  --bg-glow: radial-gradient(1200px 600px at 12% -8%, rgba(255, 106, 44, 0.13), transparent 60%);
+  --panel: #ffffff;
+  --panel-2: #f6f2ec;
+  --border: rgba(25, 21, 18, 0.11);
+  --text: #191512;
+  --muted: #6f675f;
+  color-scheme: light;
+}
+
+/* Surfaces that hardcode translucent white for depth need a dark tint on light. */
+:root[data-theme="light"] .sidebar nav a { background: rgba(25, 21, 18, 0.05); }
+:root[data-theme="light"] .sidebar nav a:hover { background: rgba(25, 21, 18, 0.09); }
+:root[data-theme="light"] .sidebar .icon-button:hover { background: rgba(25, 21, 18, 0.06); }
+:root[data-theme="light"] .whoami { background: rgba(25, 21, 18, 0.03); }
+:root[data-theme="light"] .stat .stat-icon { background: rgba(25, 21, 18, 0.06); }
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select { background: #fff; }
+/* A white "light tone" card would vanish on the light page — tint + edge it. */
+:root[data-theme="light"] .card.light { background: var(--panel-2); border-color: var(--border); }
+
 * { box-sizing: border-box; }
 
 body {

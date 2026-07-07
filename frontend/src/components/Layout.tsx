@@ -5,11 +5,14 @@ import {
   HeartPulse,
   Home,
   LogOut,
+  Moon,
   Rocket,
+  Sun,
   Workflow as WorkflowIcon,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth";
+import { useTheme } from "../theme";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -23,6 +26,7 @@ const NAV = [
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const initial = (user?.full_name ?? "?").trim().charAt(0).toUpperCase();
   return (
     <div className="shell">
@@ -38,6 +42,14 @@ export function Layout() {
           ))}
         </nav>
         <div className="spacer" />
+        <button
+          className="icon-button"
+          onClick={toggle}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+        </button>
         <button className="icon-button" onClick={logout} title="Sign out" aria-label="Sign out">
           <LogOut size={19} />
         </button>

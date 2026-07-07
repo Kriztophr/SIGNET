@@ -257,6 +257,7 @@ function EvalTable({ runs }: { runs: EvalRun[] }) {
           <th>Target</th>
           <th>Status</th>
           <th>Started</th>
+          <th>Completed</th>
           <th />
         </tr>
       </thead>
@@ -274,6 +275,9 @@ function EvalTable({ runs }: { runs: EvalRun[] }) {
             </td>
             <td>
               <Time value={run.started_at} />
+            </td>
+            <td>
+              <Time value={run.completed_at} />
             </td>
             <td>
               <Link className="button-link" to={`/evals/${run.id}`}>
@@ -361,6 +365,14 @@ export function EvalDetailPage() {
                     </dd>
                   </>
                 ) : null}
+                <dt>Started</dt>
+                <dd>
+                  <Time value={run.started_at} />
+                </dd>
+                <dt>Completed</dt>
+                <dd>
+                  <Time value={run.completed_at} />
+                </dd>
               </dl>
               {rubric ? (
                 <p className="muted">
@@ -383,6 +395,10 @@ export function EvalDetailPage() {
                 {result.scores.map((score) => (
                   <p key={score.id}>
                     <StatusBadge status={score.pass_fail ? "pass" : "fail"} /> {score.rationale}
+                    <br />
+                    <span className="muted">
+                      scored <Time value={score.submitted_at} />
+                    </span>
                   </p>
                 ))}
               </Card>

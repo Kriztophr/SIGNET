@@ -63,9 +63,47 @@ export function ShortId({ id }: { id: string }) {
   return <code title={id}>{id.slice(0, 8)}</code>;
 }
 
-export function Time({ value }: { value: string | null }) {
+const ABSOLUTE_FMT: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+};
+
+function relativeTime(then: Date): string {
+  const diffMs = then.getTime() - Date.now();
+  const abs = Math.abs(diffMs);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["day", 86_400_000],
+    ["hour", 3_600_000],
+    ["minute", 60_000],
+    ["second", 1_000],
+  ];
+  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  for (const [unit, ms] of units) {
+    if (abs >= ms || unit === "second") {
+      return rtf.format(Math.round(diffMs / ms), unit);
+    }
+  }
+  return "just now";
+}
+
+/**
+ * Renders an evidence timestamp: absolute date+time inline (or relative when
+ * asked), with the full localized timestamp + relative phrasing in the tooltip.
+ */
+export function Time({ value, relative = false }: { value: string | null; relative?: boolean }) {
   if (!value) return <span className="muted">—</span>;
-  return <span>{new Date(value).toLocaleString()}</span>;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return <span className="muted">—</span>;
+  const absolute = date.toLocaleString(undefined, ABSOLUTE_FMT);
+  const rel = relativeTime(date);
+  return (
+    <time dateTime={date.toISOString()} title={`${date.toLocaleString()} · ${rel}`}>
+      {relative ? rel : absolute}
+    </time>
+  );
 }
 
 /** Generic data loader hook: fetch on mount / when deps change, expose reload. */
