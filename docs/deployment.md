@@ -78,7 +78,10 @@ logs — replacing the manual git-bundle-over-SSH pipeline. To migrate:
    path to `docker-compose.coolify-managed.yml`.
 3. Set environment variables in the Coolify UI: `POSTGRES_PASSWORD`,
    `ICM_SECRET_KEY` (48+ random chars), and `ICM_ALLOWED_HOSTS` (your FQDN plus
-   `127.0.0.1`). Assign the domain to the `caddy` service.
+   `127.0.0.1`). Assign the domain to the `caddy` service — Coolify exposes it as
+   the `SERVICE_FQDN_CADDY_80` magic variable and generates the Traefik route to
+   port 80 (the `_80` suffix is required: the caddy image exposes 80 and 443, so
+   without it Coolify cannot tell which port to route to).
 4. Deploy, then enable **auto-deploy on push** so every push to `main` redeploys.
 5. Bootstrap the first admin once (Coolify terminal → the api container):
    `ICM_BOOTSTRAP_ADMIN_EMAIL=you@example.com ICM_BOOTSTRAP_ADMIN_PASSWORD=… python -m app.platform.auth.bootstrap`.

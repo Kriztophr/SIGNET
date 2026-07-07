@@ -3,9 +3,12 @@
 # Coolify owns the proxy, TLS, env injection, and deploys — this file just
 # declares the services. Point Coolify's repository at this repo and set this
 # as the compose path. Coolify assigns the domain to the `caddy` service via the
-# SERVICE_FQDN_CADDY magic variable (set the FQDN in the Coolify UI); Caddy then
-# serves the console and proxies API paths to the api service. Migrations run
-# automatically on api boot (deploy/api-entrypoint.sh).
+# SERVICE_FQDN_CADDY_80 magic variable (set the FQDN in the Coolify UI) — the
+# `_80` suffix is required because the caddy image exposes both 80 and 443, so
+# Coolify must be told to route the domain to the plain-HTTP port 80 that the
+# behind-proxy Caddyfile listens on. Caddy then serves the console and proxies
+# API paths to the api service. Migrations run automatically on api boot
+# (deploy/api-entrypoint.sh).
 #
 # Required environment variables (set in the Coolify UI, not committed):
 #   POSTGRES_PASSWORD, ICM_SECRET_KEY, ICM_ALLOWED_HOSTS
@@ -16,9 +19,13 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.caddy
+      args:
+        # Behind Coolify's Traefik: serve plain HTTP on :80, no self-ACME.
+        CADDYFILE: deploy/Caddyfile.behind-proxy
     environment:
-      # Coolify substitutes the domain you assign in its UI.
-      SERVICE_FQDN_CADDY: ${SERVICE_FQDN_CADDY:-}
+      # Coolify substitutes the domain you assign in its UI and routes it to
+      # port 80 of this service (the `_80` suffix disambiguates 80 vs 443).
+      SERVICE_FQDN_CADDY_80: ${SERVICE_FQDN_CADDY_80:-}
     depends_on:
       - api
     restart: unless-stopped

@@ -8,5 +8,9 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM caddy:2-alpine
-COPY deploy/Caddyfile /etc/caddy/Caddyfile
+# Which Caddyfile to bake: the default self-TLS variant (standalone Compose,
+# where Caddy owns 80/443 and ACME), or deploy/Caddyfile.behind-proxy for hosts
+# where an edge proxy (Coolify's Traefik) terminates TLS and forwards plain HTTP.
+ARG CADDYFILE=deploy/Caddyfile
+COPY ${CADDYFILE} /etc/caddy/Caddyfile
 COPY --from=frontend /build/dist /srv
