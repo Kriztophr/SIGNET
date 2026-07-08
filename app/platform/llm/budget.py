@@ -20,7 +20,9 @@ from app.platform.llm.models import LLMUsage
 from app.platform.settings.config import get_settings
 
 # USD per 1M tokens (input, output). Unknown models bill at the most expensive
-# known rate — fail closed on cost, never optimistic.
+# known rate — fail closed on cost, never optimistic. Non-Anthropic models
+# (open-source judges etc.) get entries via ICM_LLM_EXTRA_MODEL_PRICES; a free
+# model without one burns the cap at the fallback rate on purpose.
 MODEL_PRICES_PER_MTOK: dict[str, tuple[float, float]] = {
     "claude-opus-4-8": (5.0, 25.0),
     "claude-opus-4-7": (5.0, 25.0),
@@ -35,10 +37,16 @@ class BudgetExceededError(DomainValidationError):
 
 
 def cost_for(model: str, input_tokens: int, output_tokens: int) -> float:
+    extra = get_settings().llm_extra_model_prices
     base = next(
-        (price for prefix, price in MODEL_PRICES_PER_MTOK.items() if model.startswith(prefix)),
-        _FALLBACK_PRICE,
+        (price for prefix, price in extra.items() if model.startswith(prefix)),
+        None,
     )
+    if base is None:
+        base = next(
+            (price for prefix, price in MODEL_PRICES_PER_MTOK.items() if model.startswith(prefix)),
+            _FALLBACK_PRICE,
+        )
     return input_tokens / 1_000_000 * base[0] + output_tokens / 1_000_000 * base[1]
 
 

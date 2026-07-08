@@ -94,7 +94,7 @@ class AgentStageExecutor:
         ledger = LLMUsageLedger(self._session)
         try:
             ledger.ensure_within_budget()
-            adapter = get_llm_adapter()
+            adapter = get_llm_adapter("executor")
             system, user_content = self._build_prompt(stage_run)
             settings = get_settings()
             result = adapter.complete(

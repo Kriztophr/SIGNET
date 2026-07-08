@@ -121,6 +121,36 @@ exhausted, missing key) never fails or cancels the run — the stage is left
 running for manual completion, preserving the governed human path. Operators
 can also cancel a run outright: `POST /workflow/runs/{run_id}/cancel`.
 
+### Open-source / non-Anthropic models
+
+The executor and the judge each pick a provider independently — Anthropic is
+not required. Any server speaking the OpenAI chat-completions API works:
+vLLM, Ollama, OpenRouter, Groq, Together.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ICM_LLM_EXECUTOR_PROVIDER` / `ICM_LLM_JUDGE_PROVIDER` | `anthropic` | `anthropic` or `openai_compatible` |
+| `ICM_LLM_EXECUTOR_BASE_URL` / `ICM_LLM_JUDGE_BASE_URL` | unset | OpenAI-compatible endpoint, e.g. `https://openrouter.ai/api/v1` or `http://ollama-host:11434/v1` |
+| `ICM_LLM_EXECUTOR_API_KEY` / `ICM_LLM_JUDGE_API_KEY` | unset | Provider key; may stay empty for local servers without auth |
+| `ICM_LLM_EXTRA_MODEL_PRICES` | `{}` | JSON map of model-name prefix → `[input, output]` USD per 1M tokens. **Required for non-Anthropic models** — unlisted models bill at the fail-closed fallback rate ($10/$50) and burn the monthly cap on paper. Use `[0, 0]` for free/self-hosted models. |
+
+Example — Claude executor, free open-source judge via OpenRouter:
+
+```sh
+ICM_LLM_JUDGE_PROVIDER=openai_compatible
+ICM_LLM_JUDGE_BASE_URL=https://openrouter.ai/api/v1
+ICM_LLM_JUDGE_API_KEY=sk-or-...
+ICM_LLM_JUDGE_MODEL=meta-llama/llama-3.1-8b-instruct:free
+ICM_LLM_EXTRA_MODEL_PRICES={"meta-llama/llama-3.1-8b-instruct:free": [0, 0]}
+```
+
+The judge calibration loop is the safety net for cheaper judges: if
+judge-vs-human agreement drops below the suite's threshold, sampling
+auto-widens and drift signals fire — a weak judge gets more human oversight
+automatically. Governance note for regulated deployments: free hosted tiers
+often reserve the right to log or train on prompts; self-hosted (vLLM/Ollama)
+keeps evaluation content in your infrastructure.
+
 ### LLM judge (advisory eval scoring)
 
 Eval suites can opt in to an LLM judge (`ICM_LLM_JUDGE_MODEL`, Haiku by

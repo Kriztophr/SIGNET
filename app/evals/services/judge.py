@@ -163,7 +163,7 @@ class JudgeEvalService:
             ledger.ensure_within_budget()
             rubric_version = run.rubric_version
             settings = get_settings()
-            result = get_llm_adapter().complete(
+            result = get_llm_adapter("judge").complete(
                 model=settings.llm_judge_model,
                 system=self._build_system(rubric_version),
                 user_content=self._target_content(run),

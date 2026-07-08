@@ -40,6 +40,24 @@ class Settings(BaseSettings):
     llm_monthly_budget_usd: float = 50.0
     llm_max_output_tokens: int = 16000
 
+    # Provider selection per role: "anthropic" (default) or "openai_compatible"
+    # (vLLM, Ollama, OpenRouter, Groq, Together — anything speaking the OpenAI
+    # chat-completions API). base_url/api_key apply to openai_compatible only;
+    # api_key may stay empty for local servers that need no auth.
+    llm_executor_provider: str = "anthropic"
+    llm_executor_base_url: str = ""
+    llm_executor_api_key: str = ""
+    llm_judge_provider: str = "anthropic"
+    llm_judge_base_url: str = ""
+    llm_judge_api_key: str = ""
+
+    # (input, output) USD per 1M tokens for non-Anthropic models, matched by
+    # model-name prefix; JSON in env, e.g.
+    # ICM_LLM_EXTRA_MODEL_PRICES={"llama-3.1-8b": [0, 0], "qwen": [0.2, 0.2]}
+    # Unlisted models bill at the fail-closed fallback rate — a free model
+    # WITHOUT an entry here burns the monthly cap on paper.
+    llm_extra_model_prices: dict[str, tuple[float, float]] = {}
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
