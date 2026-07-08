@@ -7,6 +7,7 @@ from app.platform.events.bus import get_event_bus
 from app.platform.storage.service import StorageService
 from app.platform.time.clock import utc_now
 from app.workflow.models.entities import (
+    ExecutionMode,
     StageDefinition,
     StageRun,
     StageRunStatus,
@@ -59,6 +60,12 @@ class StageExecutionCoordinator:
                 "stage_key": stage.stage_key,
             },
         )
+
+        if stage.execution_mode is ExecutionMode.automated:
+            # Local import: tasks depend on workflow services, not vice versa.
+            from app.tasks.agent_tasks import dispatch_agent_execution
+
+            dispatch_agent_execution(stage_run.id)
         return stage_run
 
     def complete_stage(self, stage_run: StageRun) -> WorkflowRun:
@@ -262,4 +269,44 @@ class WorkflowRunService:
             },
         )
         self._coordinator.start_stage(run, version.stages[0], layer4_inputs=[])
+        return run
+
+    def cancel_run(self, run: WorkflowRun, cancelled_by: uuid.UUID) -> WorkflowRun:
+        """Kill switch (spec §28.7): stop a run — and any agent acting in it — now.
+
+        The agent executor re-checks run status under its row lock before
+        touching anything, so a cancel recorded here is honoured even if a
+        Celery task is already in flight.
+        """
+        cancellable = (
+            WorkflowRunStatus.pending,
+            WorkflowRunStatus.running,
+            WorkflowRunStatus.paused_for_review,
+            WorkflowRunStatus.paused_for_eval,
+        )
+        if run.status not in cancellable:
+            raise InvalidStateError(f"cannot cancel a run in state {run.status}")
+
+        stoppable = (
+            StageRunStatus.pending,
+            StageRunStatus.ready,
+            StageRunStatus.running,
+            StageRunStatus.awaiting_review,
+            StageRunStatus.awaiting_eval,
+            StageRunStatus.approved,
+        )
+        for stage_run in run.stage_runs:
+            if stage_run.status in stoppable:
+                stage_run.status = StageRunStatus.failed
+                stage_run.error_summary = "run cancelled by operator"
+                stage_run.completed_at = utc_now()
+
+        run.status = WorkflowRunStatus.cancelled
+        run.completed_at = utc_now()
+        run.current_stage_run_id = None
+        self._session.flush()
+        get_event_bus().publish(
+            "workflow.run.cancelled",
+            {"workflow_run_id": str(run.id), "cancelled_by": str(cancelled_by)},
+        )
         return run

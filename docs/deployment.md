@@ -34,6 +34,7 @@ changes — no separate frontend deployment step exists.
    #   ICM_SECRET_KEY     - python3 -c "import secrets; print(secrets.token_urlsafe(48))"
    #   ICM_ALLOWED_HOSTS  - your.real.domain (production refuses to boot with "*")
    #   DOMAIN             - your.real.domain (DNS A record must already point here)
+   #   ICM_ANTHROPIC_API_KEY - optional; enables automated (agent-executed) stages
    ```
    The api container **fails closed at startup** if the secret key is weak, debug is
    on, or the host allowlist is a wildcard — see [security.md](security.md).
@@ -78,7 +79,9 @@ logs — replacing the manual git-bundle-over-SSH pipeline. To migrate:
    path to `docker-compose.coolify-managed.yml`.
 3. Set environment variables in the Coolify UI: `POSTGRES_PASSWORD`,
    `ICM_SECRET_KEY` (48+ random chars), and `ICM_ALLOWED_HOSTS` (your FQDN plus
-   `127.0.0.1`). Assign the domain to the `caddy` service — Coolify exposes it as
+   `127.0.0.1`). Optionally add `ICM_ANTHROPIC_API_KEY` to enable automated
+   stages (see [Agent execution](#agent-execution-llm) below). Commit each row
+   with its **Update** button — an uncommitted value deploys as empty. Assign the domain to the `caddy` service — Coolify exposes it as
    the `SERVICE_FQDN_CADDY_80` magic variable and generates the Traefik route to
    port 80 (the `_80` suffix is required: the caddy image exposes 80 and 443, so
    without it Coolify cannot tell which port to route to).
@@ -98,6 +101,25 @@ holds) and, on change, triggers a deploy through Coolify's localhost API. See
 [`deploy/autodeploy-poller.sh`](../deploy/autodeploy-poller.sh) for the script
 and install steps; logs land in `/var/log/icm-autodeploy.log`. Effect: a push to
 `main` is live within ~2 minutes plus build time, with no inbound exposure.
+
+## Agent execution (LLM)
+
+Workflow stages whose definition sets `execution_mode: automated` are executed
+by a Claude model via the Anthropic API instead of waiting for a human to
+submit artifacts. Configuration (all optional, `ICM_` env prefix):
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ICM_ANTHROPIC_API_KEY` | unset | API key. **Unset ⇒ agent execution is disabled**: automated stages degrade gracefully — the stage is left `running` with an `error_summary`, and a human can complete it manually. Nothing else in the platform is affected. |
+| `ICM_LLM_EXECUTOR_MODEL` | `claude-opus-4-8` | Model that executes automated stages. |
+| `ICM_LLM_JUDGE_MODEL` | `claude-haiku-4-5-20251001` | Model reserved for judge evals (roadmap stage 3). |
+| `ICM_LLM_MONTHLY_BUDGET_USD` | `50` | **Hard cap, fail-closed.** Every call is priced into the `llm_usage` ledger; once the calendar-month spend reaches the cap, further agent executions are blocked *before* calling the model and the stage degrades to manual completion. |
+| `ICM_LLM_MAX_OUTPUT_TOKENS` | `16000` | Per-call output-token ceiling. |
+
+Failure philosophy: an agent failure (provider error, malformed output, budget
+exhausted, missing key) never fails or cancels the run — the stage is left
+running for manual completion, preserving the governed human path. Operators
+can also cancel a run outright: `POST /workflow/runs/{run_id}/cancel`.
 
 ## Backups
 

@@ -9,6 +9,7 @@ import app.environment.models.entities  # noqa: F401,E402
 import app.evals.models.entities  # noqa: F401,E402
 import app.governance.models.entities  # noqa: F401,E402
 import app.platform.auth.models  # noqa: F401,E402
+import app.platform.llm.models  # noqa: F401,E402
 import app.resilience.models.entities  # noqa: F401,E402
 import app.workflow.models.entities  # noqa: F401,E402
 from app.platform.db.base import Base

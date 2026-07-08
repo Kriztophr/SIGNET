@@ -132,6 +132,20 @@ def create_run(
     return run
 
 
+@router.post("/runs/{run_id}/cancel", response_model=RunOut)
+def cancel_run(
+    run_id: uuid.UUID,
+    user: User = Depends(_operator),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> RunOut:
+    """Kill switch: stop the run and any in-flight agent execution."""
+    run = WorkflowRepository(db).get_run(user.tenant_id, run_id)
+    run = WorkflowRunService(db, storage).cancel_run(run, cancelled_by=user.id)
+    db.commit()
+    return run
+
+
 @router.get("/runs/{run_id}", response_model=RunOut)
 def get_run(
     run_id: uuid.UUID,

@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     login_max_failures: int = 5
     login_window_seconds: int = 900
 
+    # LLM execution (spec §28.7). Empty api key disables agent execution —
+    # automated stages degrade gracefully to manual completion (fail open to
+    # humans, never to silence). Charter 2026-07-08: Opus drafts, Haiku judges,
+    # $50/month hard cap enforced fail-closed by the usage ledger.
+    anthropic_api_key: str = ""
+    llm_executor_model: str = "claude-opus-4-8"
+    llm_judge_model: str = "claude-haiku-4-5"
+    llm_monthly_budget_usd: float = 50.0
+    llm_max_output_tokens: int = 16000
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
