@@ -121,6 +121,34 @@ exhausted, missing key) never fails or cancels the run — the stage is left
 running for manual completion, preserving the governed human path. Operators
 can also cancel a run outright: `POST /workflow/runs/{run_id}/cancel`.
 
+### LLM judge (advisory eval scoring)
+
+Eval suites can opt in to an LLM judge (`ICM_LLM_JUDGE_MODEL`, Haiku by
+default) via their config:
+
+```json
+{
+  "min_reviewers": 1,
+  "llm_judge": {
+    "enabled": true,
+    "sampling_rate": 0.25,
+    "agreement_threshold": 0.8,
+    "window": 20
+  }
+}
+```
+
+On a sampled fraction of eval runs the judge scores the target against the
+same rubric humans use and records an **agent-authored, advisory**
+`ReviewerScore`: it never counts toward `min_reviewers` and never decides a
+gate. When the human decision lands, judge-vs-human agreement is recorded in
+the decision metrics. If rolling agreement over the last `window` decided runs
+drops below `agreement_threshold`, sampling auto-widens to 100% and each
+further disagreement emits a `judge_human_disagreement` drift signal — a
+drifting judge gets more human oversight, not less. Judge failures are logged
+no-ops; human scoring is never affected. Spend lands in the same `llm_usage`
+ledger (purpose `judge`) under the same monthly cap.
+
 ## Backups
 
 - **Postgres** — nightly logical dump, kept off the VPS:

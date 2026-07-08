@@ -58,10 +58,16 @@ class EvalScoringService:
         self._session.add(score)
         self._session.flush()
 
+        # Spec §28.8: only human scores count toward min_reviewers and votes —
+        # the LLM judge is advisory and never decides a gate.
         min_reviewers = run.suite.config_json.get("min_reviewers", 1)
-        scores = self._repo.scores_for_run(run.id)
-        if len(scores) >= min_reviewers:
-            self._complete_run(run, scores)
+        human_scores = [
+            s
+            for s in self._repo.scores_for_run(run.id)
+            if s.scored_by_type is ActorType.human
+        ]
+        if len(human_scores) >= min_reviewers:
+            self._complete_run(run, human_scores)
         return score
 
     def _complete_run(self, run: EvalRun, scores: list[ReviewerScore]) -> EvalDecision:
@@ -85,22 +91,46 @@ class EvalScoringService:
             )
 
         totals = [s.score_json.get("_weighted_total", 0) for s in scores]
+        metrics = {
+            "mean_weighted_total": sum(totals) / len(totals),
+            "pass_votes": len(passes),
+            "fail_votes": len(fails),
+            "reviewer_count": len(scores),
+        }
+        # Spec §28.8: record how the advisory judge compared to the humans.
+        judge_score = next(
+            (
+                s
+                for s in self._repo.scores_for_run(run.id)
+                if s.scored_by_type is ActorType.agent
+            ),
+            None,
+        )
+        if judge_score is not None and decision_type in (
+            EvalDecisionType.passed,
+            EvalDecisionType.failed,
+        ):
+            metrics["judge_pass_fail"] = judge_score.pass_fail
+            metrics["judge_agrees"] = judge_score.pass_fail == (
+                decision_type is EvalDecisionType.passed
+            )
+
         decision = EvalDecision(
             eval_run_id=run.id,
             decision_type=decision_type,
             decided_by_type=ActorType.system,
-            metrics_json={
-                "mean_weighted_total": sum(totals) / len(totals),
-                "pass_votes": len(passes),
-                "fail_votes": len(fails),
-                "reviewer_count": len(scores),
-            },
+            metrics_json=metrics,
             rationale=f"{len(passes)} pass / {len(fails)} fail across {len(scores)} reviewer(s)",
         )
         self._session.add(decision)
         run.status = EvalRunStatus.completed
         run.completed_at = utc_now()
         self._session.flush()
+
+        if judge_score is not None:
+            from app.evals.services.judge import record_judge_agreement
+
+            record_judge_agreement(self._session, run, decision, judge_score)
 
         self._audit.record(
             tenant_id=run.tenant_id,

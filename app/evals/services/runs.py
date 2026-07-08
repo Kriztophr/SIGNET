@@ -73,6 +73,14 @@ class EvalRunService:
                 "target_ref_id": str(target_ref_id),
             },
         )
+
+        # Spec §28.8: suites that opt in get an advisory LLM-judge score.
+        # Local import: the task module imports evals services back.
+        from app.evals.services.judge import judge_config
+        from app.tasks.judge_tasks import dispatch_judge_scoring
+
+        if judge_config(suite).enabled:
+            dispatch_judge_scoring(run.id)
         return run
 
     def _resolve_target(

@@ -47,6 +47,7 @@ def collect(client: ApiClient) -> dict:
     eval_runs = _rows(client, "/evals/runs?limit=500")
     eval_status = Counter(r.get("status", "unknown") for r in eval_runs)
     passes = fails = adjudications = disagreements = 0
+    judge_scored = judge_agreed = 0
     for run in eval_runs:
         result = client.get(f"/evals/runs/{run['id']}/result")
         if result.status != 200:
@@ -61,9 +62,15 @@ def collect(client: ApiClient) -> dict:
         if dtype == "needs_adjudication":
             adjudications += 1
         scores = payload.get("scores") or []
-        verdicts = {s.get("pass_fail") for s in scores}
+        # Human-vs-human split only; the advisory judge doesn't vote.
+        verdicts = {s.get("pass_fail") for s in scores if s.get("scored_by_type") != "agent"}
         if len(verdicts) > 1:
             disagreements += 1
+        # Judge-vs-human agreement (recorded on the decision at completion).
+        metrics = decision.get("metrics_json") or {}
+        if "judge_agrees" in metrics:
+            judge_scored += 1
+            judge_agreed += bool(metrics["judge_agrees"])
 
     drift = _rows(client, "/evals/drift-signals")
     drift_strength = [d.get("signal_strength", 0.0) for d in drift]
@@ -89,6 +96,8 @@ def collect(client: ApiClient) -> dict:
             "pass_rate": rate(passes, decided_evals),
             "adjudication_rate": rate(adjudications, len(eval_runs)),
             "reviewer_disagreement_rate": rate(disagreements, len(eval_runs)),
+            "judge_scored": judge_scored,
+            "judge_agreement_rate": rate(judge_agreed, judge_scored),
         },
         "drift": {
             "signals": len(drift),
@@ -117,6 +126,8 @@ def render(snapshot: dict) -> str:
         f"pass_rate={e['pass_rate']}",
         f"                 adjudication_rate={e['adjudication_rate']} "
         f"disagreement_rate={e['reviewer_disagreement_rate']}",
+        f"                 judge_scored={e['judge_scored']} "
+        f"judge_agreement_rate={e['judge_agreement_rate']}",
         f"Drift            signals={d['signals']:<4} mean_strength={d['mean_strength']}",
         f"Promotions       total={p['total']:<4} blocked={p['blocked_missing_evidence']:<4} "
         f"evidence_complete_rate={p['evidence_complete_rate']}",

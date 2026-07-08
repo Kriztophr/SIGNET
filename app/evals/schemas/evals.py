@@ -127,6 +127,7 @@ class ReviewerScoreOut(BaseModel):
     eval_run_id: uuid.UUID
     rubric_version_id: uuid.UUID
     reviewer_id: uuid.UUID
+    scored_by_type: str
     score_json: dict
     pass_fail: bool
     rationale: str

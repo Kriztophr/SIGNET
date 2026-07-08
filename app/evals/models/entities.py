@@ -158,6 +158,14 @@ class ReviewerScore(UuidPkMixin, TimestampedMixin, Base):
         ForeignKey("rubric_versions.id"), nullable=False
     )
     reviewer_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    # Spec §28.8: LLM-judge scores are agent-authored and advisory — they never
+    # count toward min_reviewers or vote in the decision.
+    scored_by_type: Mapped[ActorType] = mapped_column(
+        Enum(ActorType, native_enum=False, length=20),
+        default=ActorType.human,
+        server_default="human",
+        nullable=False,
+    )
     score_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     pass_fail: Mapped[bool] = mapped_column(Boolean, nullable=False)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
