@@ -58,9 +58,13 @@ export function RunsPage() {
   );
 }
 
+const CANCELLABLE = ["pending", "running", "paused_for_review", "paused_for_eval"];
+
 export function RunDetailPage() {
   const { runId } = useParams();
+  const { user } = useAuth();
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const { data: run, error, reload: reloadRun } = useLoad(
     () => api<WorkflowRun>(`/workflow/runs/${runId}`),
@@ -78,13 +82,34 @@ export function RunDetailPage() {
     reloadStages();
   }
 
+  async function cancelRun() {
+    if (!window.confirm("Cancel this run? Open stages fail and any in-flight agent work is stopped.")) {
+      return;
+    }
+    setCancelError(null);
+    try {
+      await api(`/workflow/runs/${runId}/cancel`, "POST");
+      refresh();
+    } catch (err) {
+      setCancelError((err as Error).message);
+    }
+  }
+
   return (
     <>
       <header className="page-header">
         <h1>Run {runId?.slice(0, 8)}</h1>
-        {run ? <StatusBadge status={run.status} /> : null}
+        <div className="row">
+          {run ? <StatusBadge status={run.status} /> : null}
+          {run && can(user, "operator") && CANCELLABLE.includes(run.status) ? (
+            <button className="danger" onClick={cancelRun}>
+              Cancel run
+            </button>
+          ) : null}
+        </div>
       </header>
       <ErrorNote error={error} />
+      <ErrorNote error={cancelError} />
       <div className="stage-tabs">
         {(stages ?? []).map((stage, index) => (
           <button
