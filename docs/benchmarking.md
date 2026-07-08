@@ -43,6 +43,13 @@ Run it two ways: **on the VPS against `http://127.0.0.1:8000`** for the app's ow
 latency, and **from a client against the public URL** to include the network +
 Traefik/Caddy edge.
 
+> **Warning — public-path load tests can trip provider DDoS mitigation.** A
+> 16-thread run against the public URL of a Hostinger-hosted VPS caused the
+> provider's network layer to filter the VPS's IP (all ports, for everyone,
+> hours). Prefer the server-local run for anything beyond a few threads; if you
+> must load-test the public path, keep concurrency low, warn the provider, or
+> test from an authorised load-testing service.
+
 ### Baseline (single api worker, Hostinger 8 GB VPS, 2026-07-07)
 
 | Where | Concurrency | Throughput | p50 | p95 | p99 | Errors |

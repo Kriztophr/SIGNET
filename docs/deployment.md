@@ -89,6 +89,16 @@ logs — replacing the manual git-bundle-over-SSH pipeline. To migrate:
 Coolify manages its own Traefik, so the `docker-compose.coolify.yml` Traefik-label
 overlay is only needed for the manual (non-Coolify) deployment path.
 
+### Auto-deploy on push
+
+Coolify's webhook port (8000) is firewalled off the public internet, so instead
+of a GitHub webhook this VPS runs a **poller**: a cron job that checks GitHub
+for a new HEAD on `main` every 2 minutes (via the deploy key Coolify already
+holds) and, on change, triggers a deploy through Coolify's localhost API. See
+[`deploy/autodeploy-poller.sh`](../deploy/autodeploy-poller.sh) for the script
+and install steps; logs land in `/var/log/icm-autodeploy.log`. Effect: a push to
+`main` is live within ~2 minutes plus build time, with no inbound exposure.
+
 ## Backups
 
 - **Postgres** — nightly logical dump, kept off the VPS:
