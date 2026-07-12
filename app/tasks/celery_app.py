@@ -26,3 +26,10 @@ celery_app.conf.update(
 def ping() -> str:
     """Liveness task used by worker healthchecks and smoke tests."""
     return "pong"
+
+
+# The worker command loads only this module, so every task module must be
+# imported here to register its tasks — a task missing from this list is
+# silently dropped as "unregistered" on the worker. (Bottom of file: these
+# modules import celery_app from here.)
+from app.tasks import agent_tasks, judge_tasks  # noqa: E402,F401
