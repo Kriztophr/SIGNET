@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.governance.audit.evidence_pack import EvidencePackBuilder
 from app.governance.models.entities import ReviewTaskStatus
 from app.governance.schemas.governance import (
     AuditEventOut,
@@ -19,6 +20,7 @@ from app.platform.auth.dependencies import get_current_user, require_roles
 from app.platform.auth.models import Role, User
 from app.platform.db.session import get_db
 from app.platform.storage.service import StorageService, get_storage
+from app.workflow.models.entities import ActorType
 
 router = APIRouter(prefix="/governance", tags=["governance"])
 
@@ -138,6 +140,34 @@ def escalate_review_task(
     escalated = service.escalate(service.get_task(user.tenant_id, task_id), user, body.rationale)
     db.commit()
     return escalated
+
+
+@router.get("/evidence-packs/runs/{run_id}")
+def export_run_evidence_pack(
+    run_id: uuid.UUID,
+    user: User = Depends(_auditor),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> dict:
+    """Run-scoped evidence pack (spec §17.3/§22): the full governance record
+    of one workflow run behind an SHA-256 hash chain. The export itself is a
+    consequential action, so it lands in the audit trail — after the pack is
+    built, keeping the export event out of its own hash chain."""
+    pack = EvidencePackBuilder(db, storage).build(user.tenant_id, run_id, generated_by=user)
+    AuditService(db).record(
+        tenant_id=user.tenant_id,
+        event_type="governance.evidence_pack.exported",
+        actor_type=ActorType.human,
+        actor_id=user.id,
+        workflow_run_id=run_id,
+        payload={
+            "root_hash": pack["integrity"]["root_hash"],
+            "entry_count": pack["integrity"]["entry_count"],
+            "format": pack["format"],
+        },
+    )
+    db.commit()
+    return pack
 
 
 @router.get("/audit-events", response_model=list[AuditEventOut])
