@@ -39,23 +39,33 @@ from app.workflow.services.runs import StageExecutionCoordinator
 
 logger = structlog.get_logger(__name__)
 
+# A block closes at <<<END ARTIFACT>>>, at the next opening tag, or at end of
+# text — open models routinely drop the closing tag on their final block.
 _ARTIFACT_BLOCK = re.compile(
-    r"<<<ARTIFACT role=\"(?P<role>[a-z0-9_.-]+)\">>>\n?(?P<content>.*?)<<<END ARTIFACT>>>",
+    r"<<<ARTIFACT role=\"(?P<role>[a-z0-9_.-]+)\">>>\n?"
+    r"(?P<content>.*?)"
+    r"(?:<<<END ARTIFACT>>>|(?=<<<ARTIFACT role=)|\Z)",
     re.DOTALL,
 )
 
-_OUTPUT_INSTRUCTIONS = """\
+
+def _output_instructions(roles: list[str]) -> str:
+    role_list = ", ".join(f'"{role}"' for role in roles)
+    return f"""\
 
 ## Output format (mandatory)
-Produce EVERY output listed under '## Outputs' in the contract. Emit each one
+Produce EVERY output listed under '## Outputs' in the contract. The required
+artifact role values for this stage are exactly: {role_list}. Emit each one
 as its own block, exactly in this envelope, with nothing outside the blocks:
 
 <<<ARTIFACT role="<artifact_role>">>>
 <the complete content of that artifact>
 <<<END ARTIFACT>>>
 
-Rules: one block per required role, roles exactly as named in the contract,
-markdown content, no commentary before, between, or after the blocks."""
+Rules: one block per required role; the role attribute is the role name (the
+word left of the colon in the contract's Outputs entry), never the filename;
+markdown content; close every block with <<<END ARTIFACT>>>; no commentary
+before, between, or after the blocks."""
 
 
 class AgentStageExecutor:
@@ -144,12 +154,13 @@ class AgentStageExecutor:
             raise ValueError("stage run has no context manifest")
 
         contract_md = stage.contract.source_markdown
+        roles = [output["role"] for output in stage.contract.parsed_contract_json["outputs"]]
         system = (
             "You are the executor of one stage in a governed ICM workflow. The stage "
             "contract below is law: do only what it says, produce exactly the outputs "
             "it names, and stay within its boundaries. Your work will be reviewed by "
             "humans and scored against a rubric before it can advance.\n\n"
-            f"{contract_md}\n{_OUTPUT_INSTRUCTIONS}"
+            f"{contract_md}\n{_output_instructions(roles)}"
         )
 
         sections = [
@@ -175,16 +186,33 @@ class AgentStageExecutor:
             return "(unavailable)"
 
     def _parse_outputs(self, stage_run: StageRun, text: str) -> dict[str, str]:
-        required = {
-            output["role"]
-            for output in stage_run.stage_definition.contract.parsed_contract_json["outputs"]
-        }
-        found = {
+        outputs_spec = stage_run.stage_definition.contract.parsed_contract_json["outputs"]
+        required = {output["role"] for output in outputs_spec}
+        # Models sometimes label a block with the contract filename instead of
+        # the role ('memo.md' for role 'memo'); accept those as aliases.
+        aliases: dict[str, str] = {}
+        for output in outputs_spec:
+            filename = output["filename"]
+            aliases.setdefault(filename, output["role"])
+            aliases.setdefault(filename.rsplit(".", 1)[0], output["role"])
+        raw = {
             match.group("role"): match.group("content").strip()
             for match in _ARTIFACT_BLOCK.finditer(text)
         }
+        found = {role: content for role, content in raw.items() if role in required}
+        for label, content in raw.items():
+            role = aliases.get(label)
+            if role is not None and role not in found:
+                found[role] = content
         missing = sorted(required - set(found))
         if missing:
+            logger.warning(
+                "agent_output_parse_failed",
+                stage_run_id=str(stage_run.id),
+                missing=missing,
+                block_labels=sorted(raw),
+                text_head=text[:300],
+            )
             raise ValueError(f"model response missing contract outputs: {', '.join(missing)}")
         # Only contract-declared roles are submitted — anything extra is dropped.
-        return {role: content for role, content in found.items() if role in required}
+        return found

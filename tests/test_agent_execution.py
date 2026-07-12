@@ -118,8 +118,10 @@ def test_automated_stage_executes_and_advances(client, db, operator_headers) -> 
     assert {a["artifact_role"] for a in artifacts} == {"draft", "self_review"}
     assert all(a["created_by_type"] == "agent" for a in artifacts)
 
-    # The contract was the system prompt; usage was recorded with real cost.
+    # The contract was the system prompt (with the required roles named
+    # explicitly); usage was recorded with real cost.
     assert "Contract: draft" in fake.calls[0]["system"]
+    assert '"draft", "self_review"' in fake.calls[0]["system"]
     usage = db.execute(select(LLMUsage)).scalars().all()
     assert len(usage) == 1
     assert usage[0].purpose == "executor"
@@ -159,6 +161,50 @@ def test_missing_contract_outputs_degrade_to_manual(client, operator_headers) ->
     stages = client.get(f"/workflow/runs/{run['id']}/stages", headers=operator_headers).json()
     assert stages[0]["status"] == "running"
     assert "self_review" in stages[0]["error_summary"]
+
+
+def test_lenient_parse_filename_role_and_missing_end_tag(client, operator_headers) -> None:
+    # Both failure modes observed with gpt-oss-120b on prod (2026-07-12): the
+    # block labelled with the contract FILENAME instead of the role, and the
+    # final block missing its <<<END ARTIFACT>>> closing tag.
+    sloppy = (
+        '<<<ARTIFACT role="draft_v1.md">>>\n# Draft\nProse.\n<<<END ARTIFACT>>>\n'
+        '<<<ARTIFACT role="self_review">>>\n- no gaps found\n'
+    )
+    set_llm_adapter(FakeAdapter(text=sloppy))
+    version = create_automated_version(client, operator_headers)
+
+    run = start_run(client, operator_headers, version)
+
+    stages = client.get(f"/workflow/runs/{run['id']}/stages", headers=operator_headers).json()
+    assert [s["status"] for s in stages] == ["completed", "running"]
+    artifacts = client.get(
+        f"/workflow/stage-runs/{stages[0]['id']}/artifacts", headers=operator_headers
+    ).json()
+    assert {a["artifact_role"] for a in artifacts} == {"draft", "self_review"}
+
+
+def test_exact_role_block_wins_over_filename_alias(client, operator_headers) -> None:
+    # 'draft_v1.md' aliases to 'draft', but an exact 'draft' block must win.
+    text = (
+        '<<<ARTIFACT role="draft_v1.md">>>\nalias content\n<<<END ARTIFACT>>>\n'
+        '<<<ARTIFACT role="draft">>>\nexact content\n<<<END ARTIFACT>>>\n'
+        '<<<ARTIFACT role="self_review">>>\n- ok\n<<<END ARTIFACT>>>'
+    )
+    set_llm_adapter(FakeAdapter(text=text))
+    version = create_automated_version(client, operator_headers)
+
+    run = start_run(client, operator_headers, version)
+
+    stages = client.get(f"/workflow/runs/{run['id']}/stages", headers=operator_headers).json()
+    artifacts = client.get(
+        f"/workflow/stage-runs/{stages[0]['id']}/artifacts", headers=operator_headers
+    ).json()
+    draft = next(a for a in artifacts if a["artifact_role"] == "draft")
+    content = client.get(
+        f"/workflow/artifacts/{draft['id']}/content", headers=operator_headers
+    )
+    assert content.text.strip() == "exact content"
 
 
 def test_budget_cap_blocks_agent_execution(client, db, tenant_id, operator_headers) -> None:
