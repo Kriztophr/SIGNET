@@ -9,7 +9,7 @@ cap. At or over the cap, agent execution refuses to run (BudgetExceededError)
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -55,9 +55,7 @@ class LLMUsageLedger:
         self._session = session
 
     def month_spend_usd(self) -> float:
-        month_start = datetime.now(timezone.utc).replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
+        month_start = datetime.now(UTC).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         total = self._session.execute(
             select(func.coalesce(func.sum(LLMUsage.cost_usd), 0)).where(
                 LLMUsage.created_at >= month_start

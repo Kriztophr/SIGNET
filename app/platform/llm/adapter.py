@@ -85,7 +85,9 @@ class OpenAICompatibleAdapter:
 
     _TIMEOUT_SECONDS = 300.0  # local models on modest hardware can be slow
 
-    def __init__(self, base_url: str, api_key: str = "", *, http_client: httpx.Client | None = None) -> None:
+    def __init__(
+        self, base_url: str, api_key: str = "", *, http_client: httpx.Client | None = None
+    ) -> None:
         if not base_url:
             raise LLMNotConfiguredError(
                 "openai_compatible provider selected but no base_url configured "

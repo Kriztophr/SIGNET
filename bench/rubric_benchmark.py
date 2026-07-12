@@ -27,10 +27,10 @@ from app.platform.seed.usecases import SCORE_SCALE, USE_CASES
 # criterion, with the flagship (highest-weight) criterion nudged to expose
 # whether the rubric's weighting actually discriminates.
 CANDIDATES: dict[str, float] = {
-    "gold_reference": 1.0,       # a near-perfect output
-    "strong_model": 0.8,         # solid, should pass
-    "borderline_model": 0.62,    # right around the line
-    "weak_baseline": 0.32,       # should fail, especially on weighted criteria
+    "gold_reference": 1.0,  # a near-perfect output
+    "strong_model": 0.8,  # solid, should pass
+    "borderline_model": 0.62,  # right around the line
+    "weak_baseline": 0.32,  # should fail, especially on weighted criteria
 }
 
 

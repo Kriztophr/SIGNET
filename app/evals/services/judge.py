@@ -112,9 +112,7 @@ def recent_agreement(
         .where(
             EvalRun.eval_suite_id == suite_id,
             ReviewerScore.scored_by_type == ActorType.agent,
-            EvalDecision.decision_type.in_(
-                [EvalDecisionType.passed, EvalDecisionType.failed]
-            ),
+            EvalDecision.decision_type.in_([EvalDecisionType.passed, EvalDecisionType.failed]),
         )
         .order_by(EvalRun.completed_at.desc())
         .limit(window)
@@ -228,9 +226,7 @@ class JudgeEvalService:
             f"- {c['key']} (weight {c.get('weight', 1)}): {c.get('description', '')}"
             for c in rubric_version.criteria_json
         )
-        score_keys = ", ".join(
-            f'"{c["key"]}": <number>' for c in rubric_version.criteria_json
-        )
+        score_keys = ", ".join(f'"{c["key"]}": <number>' for c in rubric_version.criteria_json)
         return _SYSTEM_TEMPLATE.format(
             criteria=criteria_lines,
             scale_min=rubric_version.score_scale_json["min"],

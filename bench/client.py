@@ -30,10 +30,14 @@ class Response:
 
 class ApiClient:
     def __init__(self, base_url: str | None = None, token: str | None = None) -> None:
-        self.base_url = (base_url or os.environ.get("ICM_BENCH_BASE_URL", "http://localhost:8000")).rstrip("/")
+        self.base_url = (
+            base_url or os.environ.get("ICM_BENCH_BASE_URL", "http://localhost:8000")
+        ).rstrip("/")
         self.token = token
 
-    def request(self, method: str, path: str, body: dict | None = None, timeout: float = 30.0) -> Response:
+    def request(
+        self, method: str, path: str, body: dict | None = None, timeout: float = 30.0
+    ) -> Response:
         url = f"{self.base_url}{path}"
         data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(url, data=data, method=method)
@@ -57,7 +61,7 @@ class ApiClient:
     def post(self, path: str, body: dict | None = None, **kw) -> Response:
         return self.request("POST", path, body=body, **kw)
 
-    def login(self, email: str | None = None, password: str | None = None) -> "ApiClient":
+    def login(self, email: str | None = None, password: str | None = None) -> ApiClient:
         email = email or os.environ.get("ICM_BENCH_EMAIL")
         password = password or os.environ.get("ICM_BENCH_PASSWORD")
         if not email or not password:

@@ -36,9 +36,7 @@ class FakeAdapter:
         self.calls: list[dict] = []
 
     def complete(self, *, model, system, user_content, max_tokens) -> LLMResult:
-        self.calls.append(
-            {"model": model, "system": system, "user_content": user_content}
-        )
+        self.calls.append({"model": model, "system": system, "user_content": user_content})
         if self.error is not None:
             raise self.error
         return LLMResult(text=self.text, model=model, input_tokens=1200, output_tokens=800)
@@ -151,9 +149,7 @@ def test_agent_failure_degrades_to_manual(client, operator_headers) -> None:
 
 
 def test_missing_contract_outputs_degrade_to_manual(client, operator_headers) -> None:
-    set_llm_adapter(
-        FakeAdapter(text='<<<ARTIFACT role="draft">>>\nonly one\n<<<END ARTIFACT>>>')
-    )
+    set_llm_adapter(FakeAdapter(text='<<<ARTIFACT role="draft">>>\nonly one\n<<<END ARTIFACT>>>'))
     version = create_automated_version(client, operator_headers)
 
     run = start_run(client, operator_headers, version)
@@ -201,9 +197,7 @@ def test_exact_role_block_wins_over_filename_alias(client, operator_headers) -> 
         f"/workflow/stage-runs/{stages[0]['id']}/artifacts", headers=operator_headers
     ).json()
     draft = next(a for a in artifacts if a["artifact_role"] == "draft")
-    content = client.get(
-        f"/workflow/artifacts/{draft['id']}/content", headers=operator_headers
-    )
+    content = client.get(f"/workflow/artifacts/{draft['id']}/content", headers=operator_headers)
     assert content.text.strip() == "exact content"
 
 

@@ -101,7 +101,9 @@ def collect(client: ApiClient) -> dict:
         },
         "drift": {
             "signals": len(drift),
-            "mean_strength": round(sum(drift_strength) / len(drift_strength), 3) if drift_strength else None,
+            "mean_strength": round(sum(drift_strength) / len(drift_strength), 3)
+            if drift_strength
+            else None,
         },
         "promotions": {
             "total": len(promotions),

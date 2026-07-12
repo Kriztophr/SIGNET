@@ -245,9 +245,7 @@ def test_suite_without_judge_config_gets_no_judge(
     assert fake.calls == []
 
 
-def test_malformed_judge_output_is_a_noop(
-    client, db, operator_headers, evaluator_headers
-) -> None:
+def test_malformed_judge_output_is_a_noop(client, db, operator_headers, evaluator_headers) -> None:
     set_llm_adapter(FakeAdapter(text="I think this deserves a solid B+."))
     _wf, stage_run_id = make_workflow_stage(client, operator_headers)
     suite = make_judge_suite(client, evaluator_headers)

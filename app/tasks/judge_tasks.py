@@ -40,7 +40,7 @@ def judge_score_task(self, eval_run_id: str) -> None:
         except LookupError as exc:
             # The enqueueing transaction may not have committed yet — retry.
             session.rollback()
-            raise self.retry(exc=exc)
+            raise self.retry(exc=exc) from exc
 
 
 def _enqueue(eval_run_id: uuid.UUID) -> None:

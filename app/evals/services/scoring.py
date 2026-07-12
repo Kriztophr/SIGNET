@@ -62,9 +62,7 @@ class EvalScoringService:
         # the LLM judge is advisory and never decides a gate.
         min_reviewers = run.suite.config_json.get("min_reviewers", 1)
         human_scores = [
-            s
-            for s in self._repo.scores_for_run(run.id)
-            if s.scored_by_type is ActorType.human
+            s for s in self._repo.scores_for_run(run.id) if s.scored_by_type is ActorType.human
         ]
         if len(human_scores) >= min_reviewers:
             self._complete_run(run, human_scores)
@@ -99,11 +97,7 @@ class EvalScoringService:
         }
         # Spec §28.8: record how the advisory judge compared to the humans.
         judge_score = next(
-            (
-                s
-                for s in self._repo.scores_for_run(run.id)
-                if s.scored_by_type is ActorType.agent
-            ),
+            (s for s in self._repo.scores_for_run(run.id) if s.scored_by_type is ActorType.agent),
             None,
         )
         if judge_score is not None and decision_type in (
