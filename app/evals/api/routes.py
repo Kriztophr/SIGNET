@@ -1,19 +1,37 @@
 import uuid
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.evals.models.entities import EvalRunStatus
+from app.evals.calibration.service import (
+    CalibrationExampleService,
+    CalibrationRunService,
+    suite_judge_monitoring,
+)
+from app.evals.models.entities import (
+    CalibrationExample,
+    CalibrationRun,
+    CalibrationSplit,
+    EvalRunStatus,
+)
 from app.evals.regressions.service import BaselineService, RegressionPackService
 from app.evals.repositories.evals import EvalsRepository
 from app.evals.rubrics.service import RubricService
 from app.evals.schemas.evals import (
     BaselineCreate,
     BaselineOut,
+    CalibrationExampleCreate,
+    CalibrationExampleOut,
+    CalibrationHarvestRequest,
+    CalibrationRunCreate,
+    CalibrationRunOut,
+    CalibrationSuggestionOut,
     DriftSignalOut,
     EvalResultOut,
     EvalRunCreate,
     EvalRunOut,
+    JudgeMonitoringOut,
     RegressionPackCreate,
     RegressionPackOut,
     RegressionPackRunOut,
@@ -269,3 +287,133 @@ def list_drift_signals(
     db: Session = Depends(get_db),
 ) -> list[DriftSignalOut]:
     return EvalsRepository(db).drift_signals(user.tenant_id, limit)
+
+
+# ------------------------------------------------------------------------- #
+# Judge calibration (spec §13.2/§13.3; roadmap stage 4b)
+# ------------------------------------------------------------------------- #
+@router.post("/calibration/examples", response_model=CalibrationExampleOut, status_code=201)
+def create_calibration_example(
+    body: CalibrationExampleCreate,
+    user: User = Depends(_evaluator),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> CalibrationExampleOut:
+    example = CalibrationExampleService(db, storage).create_example(
+        user.tenant_id,
+        user.id,
+        rubric_version_id=body.rubric_version_id,
+        content=body.content,
+        gold_score_json=body.gold_score_json,
+        gold_pass_fail=body.gold_pass_fail,
+        gold_rationale=body.gold_rationale,
+        group_key=body.group_key,
+        split=body.split,
+        test_set_version=body.test_set_version,
+        project_id=body.project_id,
+    )
+    db.commit()
+    return example
+
+
+@router.post("/calibration/examples/harvest", response_model=CalibrationExampleOut, status_code=201)
+def harvest_calibration_example(
+    body: CalibrationHarvestRequest,
+    user: User = Depends(_evaluator),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> CalibrationExampleOut:
+    example = CalibrationExampleService(db, storage).harvest_from_eval_run(
+        user.tenant_id,
+        user.id,
+        eval_run_id=body.eval_run_id,
+        split=body.split,
+        group_key=body.group_key,
+        test_set_version=body.test_set_version,
+    )
+    db.commit()
+    return example
+
+
+@router.get("/calibration/examples", response_model=list[CalibrationExampleOut])
+def list_calibration_examples(
+    rubric_version_id: uuid.UUID | None = None,
+    split: CalibrationSplit | None = None,
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[CalibrationExampleOut]:
+    stmt = select(CalibrationExample).where(CalibrationExample.tenant_id == user.tenant_id)
+    if rubric_version_id is not None:
+        stmt = stmt.where(CalibrationExample.rubric_version_id == rubric_version_id)
+    if split is not None:
+        stmt = stmt.where(CalibrationExample.split == split)
+    return list(
+        db.scalars(stmt.order_by(CalibrationExample.created_at.desc()).limit(min(limit, 500)))
+    )
+
+
+@router.get("/calibration/suggestions", response_model=list[CalibrationSuggestionOut])
+def list_harvest_suggestions(
+    limit: int = 50,
+    user: User = Depends(_evaluator),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> list[CalibrationSuggestionOut]:
+    return CalibrationExampleService(db, storage).harvest_suggestions(
+        user.tenant_id, min(limit, 200)
+    )
+
+
+@router.post("/calibration/runs", response_model=CalibrationRunOut, status_code=201)
+def create_calibration_run(
+    body: CalibrationRunCreate,
+    user: User = Depends(_evaluator),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> CalibrationRunOut:
+    run = CalibrationRunService(db, storage).create_run(
+        user.tenant_id,
+        user.id,
+        rubric_version_id=body.rubric_version_id,
+        split=body.split,
+        test_set_version=body.test_set_version,
+        project_id=body.project_id,
+    )
+    db.commit()
+    return run
+
+
+@router.get("/calibration/runs", response_model=list[CalibrationRunOut])
+def list_calibration_runs(
+    rubric_version_id: uuid.UUID | None = None,
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[CalibrationRunOut]:
+    stmt = select(CalibrationRun).where(CalibrationRun.tenant_id == user.tenant_id)
+    if rubric_version_id is not None:
+        stmt = stmt.where(CalibrationRun.rubric_version_id == rubric_version_id)
+    return list(db.scalars(stmt.order_by(CalibrationRun.created_at.desc()).limit(min(limit, 500))))
+
+
+@router.get("/calibration/runs/{run_id}", response_model=CalibrationRunOut)
+def get_calibration_run(
+    run_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    storage: StorageService = Depends(get_storage),
+) -> CalibrationRunOut:
+    return CalibrationRunService(db, storage).get_run(user.tenant_id, run_id)
+
+
+@router.get("/calibration/status", response_model=JudgeMonitoringOut)
+def judge_monitoring_status(
+    suite_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> JudgeMonitoringOut:
+    """Online judge monitoring for a suite: observed judge fail rate and the
+    Rogan-Gladen corrected estimate when a test-split calibration exists."""
+    EvalsRepository(db).get_suite(user.tenant_id, suite_id)  # tenant-scoped 404
+    return suite_judge_monitoring(db, user.tenant_id, suite_id)

@@ -11,3 +11,4 @@ def test_all_platform_tasks_registered_via_worker_entry_module() -> None:
     assert "platform.ping" in registered
     assert "workflow.execute_stage" in registered
     assert "evals.judge_score" in registered
+    assert "evals.calibration_run" in registered

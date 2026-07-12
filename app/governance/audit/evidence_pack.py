@@ -536,10 +536,12 @@ class EvidencePackBuilder:
         ]
 
     def _calibration_data(self, eval_runs: list[EvalRun]) -> list[dict]:
-        """Judge-calibration state per suite touched by this run. Until the
-        calibration module lands (roadmap stage 4b: frozen golden test split,
-        TPR/TNR with Wilson intervals, Rogan-Gladen corrected fail rate), the
-        validation evidence is the rolling human-agreement loop."""
+        """Judge-calibration state per suite touched by this run: the rolling
+        human-agreement loop, plus — when a frozen test-split calibration run
+        exists for the live judge model (stage 4b) — validated TPR/TNR with
+        Wilson intervals and the Rogan-Gladen corrected production fail rate."""
+        from app.evals.calibration.service import suite_judge_monitoring
+
         suites: dict[uuid.UUID, EvalRun] = {}
         for eval_run in eval_runs:
             suites.setdefault(eval_run.eval_suite_id, eval_run)
@@ -547,6 +549,8 @@ class EvidencePackBuilder:
         for suite_id, eval_run in sorted(suites.items(), key=lambda kv: str(kv[0])):
             cfg = judge_config(eval_run.suite)
             agreement, sample_size = recent_agreement(self._session, suite_id, window=cfg.window)
+            monitoring = suite_judge_monitoring(self._session, eval_run.tenant_id, suite_id)
+            validated = monitoring["calibration"]
             results.append(
                 {
                     "eval_suite_id": suite_id,
@@ -560,16 +564,27 @@ class EvidencePackBuilder:
                     "sampling_widened": (
                         agreement is not None and agreement < cfg.agreement_threshold
                     ),
+                    "calibration_gate": {
+                        "enabled": cfg.gate_enabled,
+                        "min_tpr": cfg.gate_min_tpr,
+                        "min_tnr": cfg.gate_min_tnr,
+                    },
+                    "observed_judge_fail_rate": monitoring["observed"],
+                    "corrected_fail_rate": monitoring["corrected"],
                     "methodology": {
-                        "status": "rolling_agreement",
-                        "validated_split_metrics": None,
+                        "status": "validated_split" if validated else "rolling_agreement",
+                        "validated_split_metrics": validated,
                         "note": (
                             "Judge scores are advisory and never decide gates; every "
                             "judge verdict is compared against the human decision, and "
                             "sustained disagreement auto-widens sampling to 100% and "
-                            "raises a drift signal. Formal TPR/TNR calibration against "
-                            "a frozen golden test split is scheduled as the next "
-                            "roadmap stage and will appear here when available."
+                            "raises a drift signal. Where present, "
+                            "validated_split_metrics reports TPR/TNR (positive class = "
+                            "defect) with Wilson 95% intervals from a frozen test split "
+                            "the judge was never tuned against, and corrected_fail_rate "
+                            "applies the Rogan-Gladen correction to the observed judge "
+                            "fail rate; the estimate is withheld when the judge is "
+                            "statistically uninformative (TPR + TNR ≈ 1)."
                         ),
                     },
                 }

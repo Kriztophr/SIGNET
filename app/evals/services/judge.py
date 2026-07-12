@@ -80,24 +80,98 @@ commentary:
 {{"scores": {{{score_keys}}}, "rationale": "<2-4 sentences justifying the scores>"}}"""
 
 
+DEFAULT_GATE_MIN_TPR = 0.7
+DEFAULT_GATE_MIN_TNR = 0.7
+
+
 @dataclass
 class JudgeConfig:
     enabled: bool = False
     sampling_rate: float = DEFAULT_SAMPLING_RATE
     agreement_threshold: float = DEFAULT_AGREEMENT_THRESHOLD
     window: int = DEFAULT_AGREEMENT_WINDOW
+    # Calibration gate (stage 4b): when enabled, the judge only scores if the
+    # current judge config has a completed test-split calibration run meeting
+    # these thresholds for the run's rubric version. Fail closed — an
+    # uncalibrated judge stays silent; humans are unaffected.
+    gate_enabled: bool = False
+    gate_min_tpr: float = DEFAULT_GATE_MIN_TPR
+    gate_min_tnr: float = DEFAULT_GATE_MIN_TNR
 
 
 def judge_config(suite: EvalSuite) -> JudgeConfig:
     raw = suite.config_json.get("llm_judge") or {}
     if not isinstance(raw, dict):
         return JudgeConfig()
+    gate = raw.get("calibration_gate") or {}
+    if not isinstance(gate, dict):
+        gate = {}
     return JudgeConfig(
         enabled=bool(raw.get("enabled", False)),
         sampling_rate=float(raw.get("sampling_rate", DEFAULT_SAMPLING_RATE)),
         agreement_threshold=float(raw.get("agreement_threshold", DEFAULT_AGREEMENT_THRESHOLD)),
         window=int(raw.get("window", DEFAULT_AGREEMENT_WINDOW)),
+        gate_enabled=bool(gate.get("enabled", False)),
+        gate_min_tpr=float(gate.get("min_tpr", DEFAULT_GATE_MIN_TPR)),
+        gate_min_tnr=float(gate.get("min_tnr", DEFAULT_GATE_MIN_TNR)),
     )
+
+
+def build_judge_system(rubric_version) -> str:
+    """The judging prompt for a rubric version — shared by production judging
+    and calibration runs, so calibration measures the prompt that actually runs."""
+    criteria_lines = "\n".join(
+        f"- {c['key']} (weight {c.get('weight', 1)}): {c.get('description', '')}"
+        for c in rubric_version.criteria_json
+    )
+    score_keys = ", ".join(f'"{c["key"]}": <number>' for c in rubric_version.criteria_json)
+    return _SYSTEM_TEMPLATE.format(
+        criteria=criteria_lines,
+        scale_min=rubric_version.score_scale_json["min"],
+        scale_max=rubric_version.score_scale_json["max"],
+        score_keys=score_keys,
+    )
+
+
+def parse_judge_response(text: str) -> tuple[dict, str]:
+    match = _JSON_BLOCK.search(text)
+    if match is None:
+        raise ValueError("judge response contained no JSON object")
+    payload = json.loads(match.group(0))
+    scores = payload.get("scores")
+    if not isinstance(scores, dict) or not scores:
+        raise ValueError("judge response missing a 'scores' object")
+    rationale = payload.get("rationale") or "(judge provided no rationale)"
+    return scores, str(rationale)
+
+
+def eval_target_content(session: Session, storage: StorageService, run: EvalRun) -> str:
+    """The work under judgment: the target artifact, or every latest artifact
+    of the target stage run. Shared by judging and calibration harvesting so
+    golden examples snapshot exactly what the judge would have seen."""
+    from app.workflow.repositories.workflow import WorkflowRepository
+
+    def read(ref: str) -> str:
+        try:
+            return storage.get_text(ref)
+        except Exception:  # noqa: BLE001 — a missing blob degrades, not crashes
+            return "(unavailable)"
+
+    workflow_repo = WorkflowRepository(session)
+    if run.artifact_id is not None:
+        artifact = workflow_repo.get_artifact(run.tenant_id, run.artifact_id)
+        content = read(artifact.storage_uri)
+        return f"# Artifact under evaluation — {artifact.artifact_role}\n{content}"
+    if run.stage_run_id is not None:
+        latest = workflow_repo.latest_artifacts_by_role(run.stage_run_id)
+        if not latest:
+            return "# Stage under evaluation\n(no artifacts submitted for this stage)"
+        sections = [
+            f"# Artifact — {role} (v{artifact.version_number})\n" + read(artifact.storage_uri)
+            for role, artifact in sorted(latest.items())
+        ]
+        return "\n\n".join(sections)
+    raise ValueError(f"judge cannot read target type {run.target_ref_type}")
 
 
 def recent_agreement(
@@ -148,6 +222,22 @@ class JudgeEvalService:
         if self._repo.has_score_from(run.id, JUDGE_REVIEWER_ID):
             log.info("judge_skipped", reason="already judge-scored")
             return None
+
+        if cfg.gate_enabled:
+            # Local import: calibration consumes this module's prompt builders.
+            from app.evals.calibration.service import calibration_gate_check
+
+            passed_gate, gate_reason = calibration_gate_check(
+                self._session,
+                run.tenant_id,
+                rubric_version_id=run.rubric_version_id,
+                judge_model=get_settings().llm_judge_model,
+                min_tpr=cfg.gate_min_tpr,
+                min_tnr=cfg.gate_min_tnr,
+            )
+            if not passed_gate:
+                log.warning("judge_skipped", reason=f"calibration gate: {gate_reason}")
+                return None
 
         agreement, _ = recent_agreement(self._session, run.eval_suite_id, window=cfg.window)
         widened = agreement is not None and agreement < cfg.agreement_threshold
@@ -222,57 +312,14 @@ class JudgeEvalService:
 
     # ------------------------------------------------------------------ #
     def _build_system(self, rubric_version) -> str:
-        criteria_lines = "\n".join(
-            f"- {c['key']} (weight {c.get('weight', 1)}): {c.get('description', '')}"
-            for c in rubric_version.criteria_json
-        )
-        score_keys = ", ".join(f'"{c["key"]}": <number>' for c in rubric_version.criteria_json)
-        return _SYSTEM_TEMPLATE.format(
-            criteria=criteria_lines,
-            scale_min=rubric_version.score_scale_json["min"],
-            scale_max=rubric_version.score_scale_json["max"],
-            score_keys=score_keys,
-        )
+        return build_judge_system(rubric_version)
 
     def _target_content(self, run: EvalRun) -> str:
-        """The work under judgment: the target artifact, or every latest
-        artifact of the target stage run."""
-        from app.workflow.repositories.workflow import WorkflowRepository
-
-        workflow_repo = WorkflowRepository(self._session)
-        if run.artifact_id is not None:
-            artifact = workflow_repo.get_artifact(run.tenant_id, run.artifact_id)
-            content = self._read(artifact.storage_uri)
-            return f"# Artifact under evaluation — {artifact.artifact_role}\n{content}"
-        if run.stage_run_id is not None:
-            latest = workflow_repo.latest_artifacts_by_role(run.stage_run_id)
-            if not latest:
-                return "# Stage under evaluation\n(no artifacts submitted for this stage)"
-            sections = [
-                f"# Artifact — {role} (v{artifact.version_number})\n"
-                + self._read(artifact.storage_uri)
-                for role, artifact in sorted(latest.items())
-            ]
-            return "\n\n".join(sections)
-        raise ValueError(f"judge cannot read target type {run.target_ref_type}")
-
-    def _read(self, ref: str) -> str:
-        try:
-            return self._storage.get_text(ref)
-        except Exception:  # noqa: BLE001 — a missing blob degrades, not crashes
-            return "(unavailable)"
+        return eval_target_content(self._session, self._storage, run)
 
     @staticmethod
     def _parse_response(text: str) -> tuple[dict, str]:
-        match = _JSON_BLOCK.search(text)
-        if match is None:
-            raise ValueError("judge response contained no JSON object")
-        payload = json.loads(match.group(0))
-        scores = payload.get("scores")
-        if not isinstance(scores, dict) or not scores:
-            raise ValueError("judge response missing a 'scores' object")
-        rationale = payload.get("rationale") or "(judge provided no rationale)"
-        return scores, str(rationale)
+        return parse_judge_response(text)
 
 
 def record_judge_agreement(

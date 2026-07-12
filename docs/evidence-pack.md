@@ -104,16 +104,22 @@ provider-level documents outside a run record's scope.
 
 ## Judge calibration status
 
-Automated oversight must itself be validated. Today the pack reports the
-**rolling-agreement** method: every LLM-judge verdict is compared with the
-human decision on the same eval run; agreement below the suite's threshold
-auto-widens judge sampling to 100% and emits drift signals. The
-`judge_calibration` section carries the live numbers (agreement rate, sample
-size, widened flag) per suite.
+Automated oversight must itself be validated. The `judge_calibration` section
+reports two layers per suite:
 
-The next roadmap stage adds formal calibration: golden examples with human
-gold labels in frozen train/dev/test splits, per-config TPR/TNR with
-confidence intervals, a fail-closed CI gate on judge-config changes, and a
-Rogan–Gladen corrected production fail-rate estimate. When that lands,
-`judge_calibration.methodology.validated_split_metrics` is populated; until
-then it is explicitly `null` — the pack never overstates its own validation.
+1. **Rolling agreement** (always on): every LLM-judge verdict is compared
+   with the human decision on the same eval run; agreement below the suite's
+   threshold auto-widens judge sampling to 100% and emits drift signals.
+2. **Validated split metrics** (when a calibration run exists): TPR/TNR with
+   Wilson 95% intervals for the live judge model, measured on a frozen golden
+   test split the judge was never tuned against (positive class = defect —
+   TPR reads "the judge catches what humans failed"), plus the test-set
+   version and the fail-closed `calibration_gate` config. With TPR/TNR known,
+   the observed judge fail rate on production runs is corrected for judge
+   error with the Rogan–Gladen estimator; the corrected estimate is withheld
+   when the judge is statistically uninformative (TPR + TNR ≈ 1).
+
+`methodology.status` says which layer backs the numbers: `validated_split`
+when split metrics exist, `rolling_agreement` otherwise with
+`validated_split_metrics: null` — the pack never overstates its own
+validation.

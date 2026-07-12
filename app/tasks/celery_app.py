@@ -32,4 +32,4 @@ def ping() -> str:
 # imported here to register its tasks — a task missing from this list is
 # silently dropped as "unregistered" on the worker. (Bottom of file: these
 # modules import celery_app from here.)
-from app.tasks import agent_tasks, judge_tasks  # noqa: E402,F401
+from app.tasks import agent_tasks, calibration_tasks, judge_tasks  # noqa: E402,F401

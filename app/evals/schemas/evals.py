@@ -4,6 +4,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.evals.models.entities import (
+    CalibrationRunStatus,
+    CalibrationSplit,
     EvalDecisionType,
     EvalRunStatus,
     EvalSuiteType,
@@ -204,6 +206,86 @@ class RegressionPackRunOut(BaseModel):
     pass_rate: float
     started_at: datetime | None
     completed_at: datetime | None
+
+
+class CalibrationExampleCreate(BaseModel):
+    rubric_version_id: uuid.UUID
+    content: str = Field(min_length=1)
+    gold_score_json: dict
+    gold_pass_fail: bool
+    gold_rationale: str = ""
+    group_key: str = Field(min_length=1, max_length=200)
+    split: CalibrationSplit | None = None
+    test_set_version: int | None = Field(default=None, ge=1)
+    project_id: uuid.UUID | None = None
+
+
+class CalibrationHarvestRequest(BaseModel):
+    eval_run_id: uuid.UUID
+    split: CalibrationSplit | None = None
+    group_key: str | None = Field(default=None, min_length=1, max_length=200)
+    test_set_version: int | None = Field(default=None, ge=1)
+
+
+class CalibrationExampleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    project_id: uuid.UUID | None
+    rubric_version_id: uuid.UUID
+    content_sha256: str
+    gold_score_json: dict
+    gold_pass_fail: bool
+    gold_rationale: str
+    split: CalibrationSplit
+    group_key: str
+    test_set_version: int | None
+    provenance: str
+    source_eval_run_id: uuid.UUID | None
+    source_artifact_id: uuid.UUID | None
+    created_at: datetime
+
+
+class CalibrationRunCreate(BaseModel):
+    rubric_version_id: uuid.UUID
+    split: CalibrationSplit
+    test_set_version: int | None = Field(default=None, ge=1)
+    project_id: uuid.UUID | None = None
+
+
+class CalibrationRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    rubric_version_id: uuid.UUID
+    split: CalibrationSplit
+    test_set_version: int | None
+    judge_provider: str
+    judge_model: str
+    judge_config_json: dict
+    status: CalibrationRunStatus
+    results_json: dict
+    metrics_json: dict
+    example_count: int
+    started_at: datetime | None
+    completed_at: datetime | None
+    created_at: datetime
+
+
+class CalibrationSuggestionOut(BaseModel):
+    eval_run_id: uuid.UUID
+    decision: str
+    reasons: list[str]
+
+
+class JudgeMonitoringOut(BaseModel):
+    eval_suite_id: uuid.UUID
+    judge_model: str
+    observed: dict
+    calibration: dict | None
+    corrected: dict | None
 
 
 class DriftSignalOut(BaseModel):

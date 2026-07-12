@@ -72,6 +72,31 @@ def collect(client: ApiClient) -> dict:
             judge_scored += 1
             judge_agreed += bool(metrics["judge_agrees"])
 
+    # Judge calibration & corrected fail rate per suite that has judge scores
+    # (Rogan-Gladen: observed judge fail rate corrected by test-split TPR/TNR).
+    calibration = []
+    for suite_id in sorted({r.get("eval_suite_id") for r in eval_runs if r.get("eval_suite_id")}):
+        status = client.get(f"/evals/calibration/status?suite_id={suite_id}")
+        if status.status != 200:
+            continue
+        payload = status.json() or {}
+        if not (payload.get("observed") or {}).get("n_judge_scored"):
+            continue
+        cal = payload.get("calibration") or {}
+        corrected = payload.get("corrected") or {}
+        calibration.append(
+            {
+                "eval_suite_id": suite_id,
+                "n_judge_scored": payload["observed"]["n_judge_scored"],
+                "observed_fail_rate": payload["observed"].get("observed_fail_rate"),
+                "tpr": cal.get("tpr"),
+                "tnr": cal.get("tnr"),
+                "test_set_version": cal.get("test_set_version"),
+                "corrected_fail_rate": corrected.get("corrected_fail_rate"),
+                "uninformative_judge": corrected.get("uninformative_judge"),
+            }
+        )
+
     drift = _rows(client, "/evals/drift-signals")
     drift_strength = [d.get("signal_strength", 0.0) for d in drift]
 
@@ -99,6 +124,7 @@ def collect(client: ApiClient) -> dict:
             "judge_scored": judge_scored,
             "judge_agreement_rate": rate(judge_agreed, judge_scored),
         },
+        "judge_calibration": calibration,
         "drift": {
             "signals": len(drift),
             "mean_strength": round(sum(drift_strength) / len(drift_strength), 3)
@@ -131,6 +157,14 @@ def render(snapshot: dict) -> str:
         f"                 judge_scored={e['judge_scored']} "
         f"judge_agreement_rate={e['judge_agreement_rate']}",
         f"Drift            signals={d['signals']:<4} mean_strength={d['mean_strength']}",
+    ]
+    for cal in snapshot["judge_calibration"]:
+        lines.append(
+            f"Judge cal.       suite={cal['eval_suite_id'][:8]} "
+            f"tpr={cal['tpr']} tnr={cal['tnr']} "
+            f"obs_fail={cal['observed_fail_rate']} corrected={cal['corrected_fail_rate']}"
+        )
+    lines += [
         f"Promotions       total={p['total']:<4} blocked={p['blocked_missing_evidence']:<4} "
         f"evidence_complete_rate={p['evidence_complete_rate']}",
     ]

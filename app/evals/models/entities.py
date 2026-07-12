@@ -252,3 +252,76 @@ class DisagreementRecord(UuidPkMixin, TimestampedMixin, Base):
         String(50), default="pass_fail_split", nullable=False
     )
     status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
+
+
+class CalibrationSplit(enum.StrEnum):
+    train = "train"  # few-shot/prompt material only — never evaluated
+    dev = "dev"  # iterate judge configs here
+    test = "test"  # frozen once a calibration run has used it
+
+
+class CalibrationRunStatus(enum.StrEnum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+
+
+class CalibrationExample(UuidPkMixin, TimestampedMixin, TenantScopedMixin, Base):
+    """A golden example: artifact content with a human gold label (spec §13.3).
+
+    The split is immutable at creation and shared by every example with the
+    same group_key, so correlated work (e.g. one workflow run's artifacts)
+    can never straddle train and test — that would leak."""
+
+    __tablename__ = "calibration_examples"
+    # One golden example per eval run: harvesting twice would double-weight it.
+    __table_args__ = (UniqueConstraint("tenant_id", "source_eval_run_id"),)
+
+    rubric_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("rubric_versions.id"), index=True, nullable=False
+    )
+    content_ref: Mapped[str] = mapped_column(String(500), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    gold_score_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    gold_pass_fail: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    gold_rationale: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    split: Mapped[CalibrationSplit] = mapped_column(
+        Enum(CalibrationSplit, native_enum=False, length=10), index=True, nullable=False
+    )
+    group_key: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
+    test_set_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provenance: Mapped[str] = mapped_column(String(30), nullable=False)
+    source_eval_run_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    source_artifact_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+
+
+class CalibrationRun(UuidPkMixin, TimestampedMixin, TenantScopedMixin, Base):
+    """One judge config executed over a dev or test split; the run pins the
+    exact example set and stores TPR/TNR with Wilson intervals (positive
+    class = defect, i.e. gold pass_fail is False)."""
+
+    __tablename__ = "calibration_runs"
+
+    rubric_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("rubric_versions.id"), index=True, nullable=False
+    )
+    split: Mapped[CalibrationSplit] = mapped_column(
+        Enum(CalibrationSplit, native_enum=False, length=10), nullable=False
+    )
+    test_set_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    judge_provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    judge_model: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
+    judge_config_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    status: Mapped[CalibrationRunStatus] = mapped_column(
+        Enum(CalibrationRunStatus, native_enum=False, length=20),
+        default=CalibrationRunStatus.pending,
+        nullable=False,
+    )
+    results_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    metrics_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    example_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    triggered_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

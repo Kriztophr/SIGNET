@@ -179,6 +179,45 @@ drifting judge gets more human oversight, not less. Judge failures are logged
 no-ops; human scoring is never affected. Spend lands in the same `llm_usage`
 ledger (purpose `judge`) under the same monthly cap.
 
+### Judge calibration (golden datasets, TPR/TNR, corrected fail rate)
+
+A trustworthy judge is validated like a model, not assumed. The calibration
+module (spec §13.2/§13.3) keeps **golden examples** — artifact content plus a
+human gold label — in immutable train/dev/test splits; examples that share a
+`group_key` (e.g. one workflow run) always share a split, so correlated work
+never leaks across train and test. Harvest any human-decided eval run with
+`POST /evals/calibration/examples/harvest` (disagreement cases are suggested
+at `/evals/calibration/suggestions`), or author known failure modes directly.
+
+`POST /evals/calibration/runs` executes the **live judge config** (provider,
+model, prompt) over the dev or test split and stores TPR/TNR with Wilson 95%
+intervals — the positive class is a *defect*, so TPR reads "the judge catches
+what humans failed". Test sets freeze on first use: additions after that open
+test-set v2 (cumulative), so a number quoted against v1 stays reproducible.
+Spend lands in `llm_usage` (purpose `calibration`) under the same cap,
+fail-closed.
+
+Suites can then require calibration before the judge may score production
+work — CI for judge configs, fail closed (the judge stays silent; humans are
+unaffected):
+
+```json
+{
+  "llm_judge": {
+    "enabled": true,
+    "sampling_rate": 0.25,
+    "calibration_gate": { "enabled": true, "min_tpr": 0.7, "min_tnr": 0.7 }
+  }
+}
+```
+
+`GET /evals/calibration/status?suite_id=...` reports online monitoring: the
+observed judge fail rate on production runs and the **Rogan–Gladen corrected
+true fail rate** `(p_obs + TNR − 1) / (TPR + TNR − 1)`, withheld when the
+judge is statistically uninformative (TPR + TNR ≈ 1). The same numbers appear
+in `bench.governance_metrics` and in the evidence pack's `judge_calibration`
+section.
+
 ## Backups
 
 - **Postgres** — nightly logical dump, kept off the VPS:
