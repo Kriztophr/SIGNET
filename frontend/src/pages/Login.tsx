@@ -33,7 +33,7 @@ export function LoginPage() {
     <div className="login-screen">
       <form className="login-card" onSubmit={onSubmit}>
         <h1>
-          ICM <span>Console</span>
+          Signet <span>Console</span>
         </h1>
         <p className="muted">Governed agent workflow platform</p>
         <label>

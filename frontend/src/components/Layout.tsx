@@ -31,7 +31,7 @@ export function Layout() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="logo" title="ICM Console">
+        <div className="logo" title="Signet Console">
           <WorkflowIcon size={22} strokeWidth={2.2} />
         </div>
         <nav>

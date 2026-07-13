@@ -1,14 +1,16 @@
-# icm-platform
+# Signet
 
-ICM-native governed agent workflow, evals, environment, and human capacity resilience platform.
-A production-oriented **modular monolith** built with FastAPI, PostgreSQL, Redis, and Celery,
-designed for single-VPS deployment first, with clean extension points for a private GPU
-compute node later.
+**Signet** is a governed agent workflow, evals, environment, and human capacity resilience
+platform — every AI-assisted run leaves a sealed, verifiable record of who approved what,
+how it scored, and what it cost. A production-oriented **modular monolith** built with
+FastAPI, PostgreSQL, Redis, and Celery, designed for single-VPS deployment first, with
+clean extension points for a private GPU compute node later.
 
-The workflow substrate implements the **Interpretable Context Methodology (ICM)**: staged
-execution through explicit stage contracts, layered context loading, and human-readable,
-versioned intermediate artifacts — not opaque orchestration logic. Governance, evals,
-environment versioning, and human-capacity measurement build on that substrate.
+Signet's workflow substrate is delivered with the **Interpretable Context Methodology
+(ICM)**: staged execution through explicit stage contracts, layered context loading, and
+human-readable, versioned intermediate artifacts — not opaque orchestration logic. ICM is
+the methodology, Signet is the product; governance, evals, environment versioning, and
+human-capacity measurement build on that substrate.
 
 ## Authoritative documents
 

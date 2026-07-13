@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="ICM_", env_file=".env", extra="ignore")
 
-    app_name: str = "icm-platform"
+    app_name: str = "Signet"
     app_version: str = "0.1.0"
     environment: str = "development"
     debug: bool = False

@@ -145,7 +145,7 @@ def collect(client: ApiClient) -> dict:
 def render(snapshot: dict) -> str:
     r, e, d, p = snapshot["reviews"], snapshot["evals"], snapshot["drift"], snapshot["promotions"]
     lines = [
-        "ICM governance-quality metrics",
+        "Signet governance-quality metrics",
         "=" * 42,
         f"Reviews          total={r['total']:<4} decided={r['decided']:<4} "
         f"override_rate={r['override_rate']}",

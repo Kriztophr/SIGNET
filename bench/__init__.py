@@ -1,4 +1,4 @@
-"""ICM platform benchmarking suite.
+"""Signet benchmarking suite.
 
 Three harnesses, all dependency-free (stdlib only) so they run from a laptop or
 the VPS without installing anything:

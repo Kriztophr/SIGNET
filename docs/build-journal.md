@@ -1,8 +1,11 @@
-# ICM Platform — Build Journal
+# Signet — Build Journal
 
-A chronological record of the conversation that built the **ICM-native governed
-agent workflow, evals, environment, and human-capacity-resilience platform** —
+A chronological record of the conversation that built **Signet**, the governed
+agent workflow, evals, environment, and human-capacity-resilience platform —
 from an empty folder to a deployed, governed system with an operations console.
+(The platform carried the working title "ICM platform" during the build; ICM —
+the Interpretable Context Methodology — is the methodology it is delivered
+with, not the product name.)
 
 - **Repository:** `https://github.com/Kriztophr/NS` (local: `~/projects/icm-platform`)
 - **Live URL:** `https://srv1182863.hstgr.cloud` (Hostinger VPS `46.202.195.9`)
