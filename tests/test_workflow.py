@@ -131,6 +131,8 @@ def test_gapped_order_index_rejected(client, operator_headers) -> None:
 
 
 def test_run_end_to_end(client, operator_headers) -> None:
+    """A two-stage run goes from start to completion: contract-checked
+    artifact submission, stage handoff into the next stage's context, done."""
     version = create_version(client, operator_headers)
 
     run = client.post(

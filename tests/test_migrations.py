@@ -15,6 +15,8 @@ def _config(db_url: str) -> Config:
 
 
 def test_migrations_upgrade_and_downgrade(tmp_path) -> None:
+    """The full database migration chain walks up and back down cleanly on a
+    fresh database."""
     url = f"sqlite:///{(tmp_path / 'mig.db').as_posix()}"
     cfg = _config(url)
 

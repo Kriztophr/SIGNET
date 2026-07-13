@@ -5,6 +5,7 @@ from app.platform.storage.service import StorageService
 
 
 def test_put_get_roundtrip(tmp_path) -> None:
+    """Stored text reads back identically via its storage URI."""
     storage = StorageService(tmp_path / "objects")
     uri = storage.put_text("runs/abc/00_identity/workspace_identity.md", "hello")
     assert uri == "local://runs/abc/00_identity/workspace_identity.md"

@@ -66,6 +66,8 @@ def test_duplicate_slug_rejected(client, manager_headers) -> None:
 
 
 def test_reference_bundle_and_blueprint(client, manager_headers) -> None:
+    """Reference bundles and workspace blueprints attach to an environment
+    version and read back intact (without leaking storage URIs)."""
     template = make_env_template(client, manager_headers)
     version = make_env_version(client, manager_headers, template["id"]).json()
 

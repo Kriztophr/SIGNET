@@ -104,6 +104,8 @@ def test_suite_min_reviewers_validated(client, evaluator_headers) -> None:
 
 
 def test_run_derives_workflow_linkage(client, operator_headers, evaluator_headers) -> None:
+    """Creating an eval run against a stage automatically links it to the
+    workflow run and environment version, so evidence stays traceable."""
     wf_run, stage_run_id = make_workflow_stage(client, operator_headers)
     suite = make_suite(client, evaluator_headers).json()
     version = make_rubric_version(client, evaluator_headers).json()
@@ -145,6 +147,7 @@ def awaiting_run(client, operator_headers, evaluator_headers) -> dict:
 
 
 def test_score_validation(client, evaluator_headers, awaiting_run) -> None:
+    """Scores with missing rubric criteria or out-of-range values are rejected."""
     wrong_keys = score(client, evaluator_headers, awaiting_run["id"], {"accuracy": 3})
     assert wrong_keys.status_code == 422
     assert "clarity" in wrong_keys.json()["detail"]
@@ -277,6 +280,7 @@ def make_pack(client, headers, suite_ids, scope_ref="proj-a"):
 
 
 def test_pack_rejects_unknown_suite(client, evaluator_headers) -> None:
+    """A regression pack cannot reference an eval suite that does not exist."""
     assert make_pack(client, evaluator_headers, [str(uuid.uuid4())]).status_code == 404
 
 
@@ -334,6 +338,8 @@ def test_passing_pack_produces_no_drift(client, operator_headers, evaluator_head
 
 
 def test_pack_without_baseline_never_signals(client, operator_headers, evaluator_headers) -> None:
+    """A regression pack with no recorded baseline never raises drift signals —
+    drift is always measured against an explicit baseline."""
     suite = make_suite(client, evaluator_headers).json()
     pack = make_pack(client, evaluator_headers, [suite["id"]], scope_ref="no-baseline").json()
     pack_run = client.post(

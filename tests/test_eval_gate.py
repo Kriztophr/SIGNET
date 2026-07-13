@@ -108,6 +108,8 @@ def test_eval_fail_fails_run(client, operator_headers, evaluator_headers) -> Non
 def test_adjudication_split_keeps_paused_second_run_unblocks(
     client, db, operator_headers, evaluator_headers, reviewer_headers
 ) -> None:
+    """A split reviewer vote leaves the stage paused for adjudication; a
+    second, agreeing eval run then unblocks it."""
     run, stage1_id = start_gated_run(client, operator_headers)
     client.post(f"/workflow/stage-runs/{stage1_id}/complete", headers=operator_headers)
 
@@ -139,6 +141,8 @@ def test_pre_existing_pass_skips_pause(client, operator_headers, evaluator_heade
 
 
 def test_manual_fail_from_awaiting_eval(client, operator_headers) -> None:
+    """An operator can manually fail a stage waiting at the eval gate, which
+    fails the whole run."""
     run, stage1_id = start_gated_run(client, operator_headers)
     client.post(f"/workflow/stage-runs/{stage1_id}/complete", headers=operator_headers)
     failed = client.post(

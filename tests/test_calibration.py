@@ -100,6 +100,9 @@ def run_calibration(client, headers, rubric_version, split="test", test_set_vers
 
 
 def test_wilson_and_rogan_gladen_math() -> None:
+    """The statistics are right: Wilson intervals stay inside [0, 1], the
+    Rogan-Gladen correction matches its formula, and an uninformative judge
+    (TPR + TNR near 1) yields no estimate instead of a misleading one."""
     lo, hi = wilson_interval(8, 10)
     assert 0.4 < lo < 0.8 < hi <= 1.0
     assert wilson_interval(0, 0) is None
@@ -284,6 +287,8 @@ def test_test_set_freezes_once_used(client, evaluator_headers) -> None:
 
 
 def test_run_split_validation(client, evaluator_headers) -> None:
+    """Calibration runs only accept the dev or test split, and only when
+    examples exist there — train is prompt material, never evaluated."""
     version = make_rubric_version(client, evaluator_headers).json()
     assert run_calibration(client, evaluator_headers, version, split="train").status_code == 422
     assert run_calibration(client, evaluator_headers, version, split="dev").status_code == 422
@@ -463,6 +468,7 @@ def test_budget_cap_fails_calibration_run_closed(client, db, tenant_id, evaluato
 
 
 def test_calibration_rbac(client, operator_headers, evaluator_headers) -> None:
+    """Only evaluators (and admins) may create calibration examples or runs."""
     version = make_rubric_version(client, evaluator_headers).json()
     denied = author_example(
         client, operator_headers, version, content="x", gold_pass=True, group="r-a"

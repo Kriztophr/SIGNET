@@ -160,6 +160,8 @@ def test_missing_contract_outputs_degrade_to_manual(client, operator_headers) ->
 
 
 def test_lenient_parse_filename_role_and_missing_end_tag(client, operator_headers) -> None:
+    """Executor output parsing tolerates real open-model sloppiness: blocks
+    labelled with the filename instead of the role, and a missing closing tag."""
     # Both failure modes observed with gpt-oss-120b on prod (2026-07-12): the
     # block labelled with the contract FILENAME instead of the role, and the
     # final block missing its <<<END ARTIFACT>>> closing tag.
@@ -181,6 +183,8 @@ def test_lenient_parse_filename_role_and_missing_end_tag(client, operator_header
 
 
 def test_exact_role_block_wins_over_filename_alias(client, operator_headers) -> None:
+    """When the model emits both an exact role block and a filename-labelled
+    one, the exact role wins."""
     # 'draft_v1.md' aliases to 'draft', but an exact 'draft' block must win.
     text = (
         '<<<ARTIFACT role="draft_v1.md">>>\nalias content\n<<<END ARTIFACT>>>\n'
@@ -227,6 +231,8 @@ def test_budget_cap_blocks_agent_execution(client, db, tenant_id, operator_heade
 
 
 def test_cancel_run_kill_switch(client, operator_headers) -> None:
+    """The operator kill switch cancels a running run and fails its open
+    stages; a second cancel is rejected."""
     # Manual template so the run sits at a running stage.
     template = client.post(
         "/workflow/templates",
@@ -265,6 +271,8 @@ def test_cancel_run_kill_switch(client, operator_headers) -> None:
 
 
 def test_cancelled_run_never_executes_agent(client, db, storage, operator_headers) -> None:
+    """An agent task that arrives after its run was cancelled does nothing —
+    the kill switch wins the race."""
     # Queue the dispatch (deferred), cancel, then let the "worker" run late.
     queued: list = []
     set_agent_dispatcher(queued.append)

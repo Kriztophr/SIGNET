@@ -88,6 +88,8 @@ def qualify_subject(client, headers, suite_id, subject_id=None) -> dict:
 
 
 def test_capacity_run_qualifies_subject(client, resilience_headers, admin_headers, db) -> None:
+    """Passing verification/override/reconstruction scores qualify a human for
+    a critical capability."""
     capability = make_capability(client, resilience_headers)
     suite = make_capacity_suite(client, resilience_headers, capability["id"])
     subject_id = str(uuid.uuid4())

@@ -64,6 +64,9 @@ def entries_for(pack: dict, section: str) -> list[dict]:
 def test_evidence_pack_full_governed_run(
     client, operator_headers, reviewer_headers, evaluator_headers, auditor_headers
 ) -> None:
+    """A fully governed run — review approval plus a judge-assisted, human-decided
+    eval — exports a pack whose hash chain verifies from the served JSON, with
+    lineage, actors, judge provenance, spend, and calibration state all present."""
     run = build_governed_run(client, operator_headers, reviewer_headers, evaluator_headers)
 
     response = export_pack(client, auditor_headers, run["id"])
@@ -154,6 +157,8 @@ def test_hash_chain_detects_tampering(
 
 
 def test_pack_of_minimal_run_is_valid(client, operator_headers, auditor_headers) -> None:
+    """A freshly started run with no reviews or evals still exports a valid,
+    verifiable pack with zero counts in those sections."""
     version = create_version(client, operator_headers)
     run = client.post(
         "/workflow/runs",

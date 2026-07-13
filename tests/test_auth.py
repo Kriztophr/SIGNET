@@ -24,6 +24,7 @@ def user(db) -> User:
 
 
 def test_password_hash_roundtrip() -> None:
+    """A password verifies against its own bcrypt hash and nothing else."""
     hashed = hash_password(PASSWORD)
     assert hashed != PASSWORD
     assert verify_password(PASSWORD, hashed)
@@ -41,6 +42,7 @@ def test_email_is_normalized_lowercase(user) -> None:
 
 
 def test_login_and_me_flow(client, user) -> None:
+    """A valid login returns a token that identifies the user on /users/me."""
     login = client.post("/auth/login", json={"email": "admin@example.com", "password": PASSWORD})
     assert login.status_code == 200
     token = login.json()["access_token"]
@@ -73,10 +75,12 @@ def test_inactive_user_cannot_login(client, db, user) -> None:
 
 
 def test_me_requires_token(client) -> None:
+    """The identity endpoint is refused without a token."""
     assert client.get("/users/me").status_code == 401
 
 
 def test_me_rejects_garbage_token(client) -> None:
+    """The identity endpoint is refused for a malformed token."""
     response = client.get("/users/me", headers={"Authorization": "Bearer not-a-jwt"})
     assert response.status_code == 401
 
