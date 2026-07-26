@@ -125,7 +125,8 @@ export function RunDetailPage() {
         <h1>Run {runId?.slice(0, 8)}</h1>
         <div className="row">
           {run ? <StatusBadge status={run.status} /> : null}
-          {can(user, "auditor") || can(user, "operator") ? (
+          {/* Auditor-only: matches the backend guard on /governance/evidence-packs. */}
+          {can(user, "auditor") ? (
             <button className="accent" disabled={exporting} onClick={exportCompliancePack}>
               {exporting ? "Exporting…" : "Export Compliance Pack"}
             </button>
@@ -216,16 +217,22 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
         <Card title="Task Context & Attachments">
           {manifest ? (
             <dl>
-              <dt>Workspace Identity</dt>
+              <dt>Workspace identity (layer 0)</dt>
               <dd>
+                <code>{manifest.layer0_ref}</code>
+                <br />
                 <span className="muted">System persona & instructions</span>
               </dd>
-              <dt>Stage Sequence</dt>
+              <dt>Stage sequence (layer 1)</dt>
               <dd>
+                <code>{manifest.layer1_ref}</code>
+                <br />
                 <span className="muted">Workflow routing rules</span>
               </dd>
-              <dt>Stage Contract Requirements</dt>
+              <dt>Stage contract (layer 2)</dt>
               <dd>
+                <code>{manifest.layer2_ref}</code>
+                <br />
                 <span className="muted">Input specifications & required deliverable rules</span>
               </dd>
               <dt>Previous Stage Deliverables</dt>
@@ -251,12 +258,14 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
           )}
           {stage?.error_summary ? (
             <div className="error-note" style={{ marginTop: "0.8rem", padding: "0.8rem", borderRadius: "6px" }}>
-              <strong>⚠️ AI Assistant Alert</strong>
-              <p style={{ margin: "0.4rem 0 0 0" }}>
-                {stage.error_summary.includes("404")
-                  ? "The AI model provider is currently unreachable (404 Not Found). The stage has been left open so you can submit the required deliverable below."
-                  : stage.error_summary}
-              </p>
+              <strong>⚠️ Agent execution problem</strong>
+              <p style={{ margin: "0.4rem 0 0 0" }}>{stage.error_summary}</p>
+              {running ? (
+                <p className="muted" style={{ margin: "0.4rem 0 0 0" }}>
+                  The stage stays open — you can complete it manually by submitting the required
+                  deliverable below.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </Card>
@@ -326,12 +335,14 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
                 onClick={() => {
                   const targetRole = role.trim() || "scope_brief";
                   setRole(targetRole);
+                  // Deliberately unmistakable placeholder: submitted artifacts enter the
+                  // hash-chained audit record, so a template must never read as real work.
                   setContent(
-                    `# Deliverable: ${targetRole}\n\n## Summary\nCompleted required work for this stage according to contract guidelines.\n\n## Findings & Output\n- Analysis verified and formatted.\n- Ready for next review phase.\n`
+                    `# [SAMPLE — replace before submitting]: ${targetRole}\n\n## Summary\n[Describe the work actually completed for this stage.]\n\n## Findings & Output\n- [Finding 1]\n- [Finding 2]\n`
                   );
                 }}
               >
-                ✨ Auto-fill sample content
+                Insert template
               </button>
             </div>
             <textarea

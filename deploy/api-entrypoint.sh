@@ -8,7 +8,10 @@ set -e
 echo "[entrypoint] applying database migrations…"
 alembic upgrade head
 
-echo "[entrypoint] seeding demo user accounts…"
+# Demo accounts: only seeds when ICM_SEED_DEMO_USERS + ICM_DEMO_USERS_PASSWORD
+# are set; with the flag off it DEACTIVATES any previously seeded demo accounts,
+# so this line must keep running on production to clean up past seeds.
+echo "[entrypoint] reconciling demo user accounts…"
 python -m app.platform.seed.demo_users || true
 
 echo "[entrypoint] starting uvicorn…"

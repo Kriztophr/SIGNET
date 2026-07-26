@@ -181,9 +181,21 @@ export interface Promotion {
   requested_at: string | null;
   approved_at: string | null;
   requirements_json: Record<string, unknown>;
+  // Mirrors PromotionEvidenceEvaluator.evaluate() in
+  // app/environment/promotion/evidence.py — keep the two in sync.
   evidence_json: {
+    regression_packs?: { pack_id: string; passed: boolean; pass_rate?: number }[];
+    eval_runs?: {
+      total: number;
+      passed: number;
+      failed: number;
+      incomplete: number;
+      adjudication: number;
+    };
+    open_disagreements?: number;
+    active_drift_signals?: number;
+    resilience?: { thresholds_evaluated: number; breaches: string[] };
     blocking_reasons?: string[];
-    [key: string]: unknown;
   };
   decision_reason: string | null;
 }

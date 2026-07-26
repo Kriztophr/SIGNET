@@ -62,7 +62,7 @@ export function HomePage() {
           actions={<Link className="button-link" to="/runs">See all</Link>}
         >
           {runs && runs.length === 0 ? (
-            <Empty label="No workflow runs yet — create a blueprint and start one from Workflows." />
+            <Empty label="No workflow runs yet — create a blueprint and start one from the Blueprints page." />
           ) : (
             <table>
               <thead>

@@ -74,23 +74,33 @@ export function PromotionsPage() {
               <div className="grid-2">
                 <div>
                   <strong>Evaluation Evidence</strong>
-                  {promotion.evidence_json?.eval_evidence ? (
+                  {promotion.evidence_json.eval_runs ? (
                     <ul className="muted" style={{ paddingLeft: "1.2rem", margin: "0.4rem 0" }}>
-                      <li>Total eval runs: {String((promotion.evidence_json.eval_evidence as Record<string, unknown>).total_runs ?? 0)}</li>
-                      <li>Passed runs: {String((promotion.evidence_json.eval_evidence as Record<string, unknown>).passed_runs ?? 0)}</li>
-                      <li>Failed runs: {String((promotion.evidence_json.eval_evidence as Record<string, unknown>).failed_runs ?? 0)}</li>
-                      <li>Pass rate: {typeof (promotion.evidence_json.eval_evidence as Record<string, unknown>).pass_rate === "number" ? `${((promotion.evidence_json.eval_evidence as Record<string, unknown>).pass_rate as number * 100).toFixed(0)}%` : "N/A"}</li>
+                      <li>Total eval runs: {promotion.evidence_json.eval_runs.total}</li>
+                      <li>Passed: {promotion.evidence_json.eval_runs.passed}</li>
+                      <li>Failed: {promotion.evidence_json.eval_runs.failed}</li>
+                      <li>Awaiting scores: {promotion.evidence_json.eval_runs.incomplete}</li>
+                      <li>Needing adjudication: {promotion.evidence_json.eval_runs.adjudication}</li>
                     </ul>
                   ) : (
-                    <p className="muted">No evaluation history evaluated.</p>
+                    <p className="muted">No evaluation evidence recorded.</p>
                   )}
                 </div>
                 <div>
                   <strong>Disagreements & Drift</strong>
                   <ul className="muted" style={{ paddingLeft: "1.2rem", margin: "0.4rem 0" }}>
-                    <li>Open split decisions: {String((promotion.evidence_json?.disagreement_evidence as Record<string, unknown> | undefined)?.open_disagreements ?? 0)}</li>
-                    <li>Active drift signals: {String((promotion.evidence_json?.drift_evidence as Record<string, unknown> | undefined)?.active_drift_signals ?? 0)}</li>
+                    <li>Open split decisions: {promotion.evidence_json.open_disagreements ?? 0}</li>
+                    <li>Active drift signals: {promotion.evidence_json.active_drift_signals ?? 0}</li>
                   </ul>
+                  {promotion.evidence_json.resilience ? (
+                    <>
+                      <strong>Resilience</strong>
+                      <ul className="muted" style={{ paddingLeft: "1.2rem", margin: "0.4rem 0" }}>
+                        <li>Thresholds evaluated: {promotion.evidence_json.resilience.thresholds_evaluated}</li>
+                        <li>Breaches: {promotion.evidence_json.resilience.breaches.length}</li>
+                      </ul>
+                    </>
+                  ) : null}
                 </div>
               </div>
               {Array.isArray(promotion.evidence_json?.blocking_reasons) && promotion.evidence_json.blocking_reasons.length > 0 ? (
