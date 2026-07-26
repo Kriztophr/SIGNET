@@ -4,7 +4,7 @@ Each line below is one automated check, described for a human reviewer.
 A release is only shipped when every one of them passes. Regenerate after
 changing tests: `uv run python tools/generate_test_catalog.py`.
 
-**161 checks across 22 areas.**
+**163 checks across 22 areas.**
 
 ## Agent execution (automated stages, kill switch)
 
@@ -86,7 +86,7 @@ changing tests: `uv run python tools/generate_test_catalog.py`.
 
 ## demo seed
 
-*4 checks — `tests/test_demo_seed.py`*
+*6 checks — `tests/test_demo_seed.py`*
 
 > Demo-account seeding is opt-in and self-healing: without the env gate it never creates accounts and deactivates any left over from an earlier seed.
 
@@ -94,6 +94,8 @@ changing tests: `uv run python tools/generate_test_catalog.py`.
 - The gate alone is not enough: seeding without a strong password from the environment fails instead of falling back to anything hardcoded.
 - With gate + password set, all six role accounts land in the first tenant.
 - A production redeploy with the gate off locks out previously seeded demo accounts — the entrypoint run self-heals an environment seeded by mistake.
+- Accounts from the old @signet.local seed are locked out even when demo seeding is enabled — they are a leftover, not part of the current set.
+- A seeded demo account works end to end: its email must survive the login endpoint's address validation (which rejects reserved domains like .local).
 
 ## Environment (templates, evidence-gated promotion)
 

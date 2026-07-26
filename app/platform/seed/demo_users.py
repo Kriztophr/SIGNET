@@ -23,13 +23,25 @@ from app.platform.auth.models import Role, User
 from app.platform.auth.service import MIN_PASSWORD_LENGTH, AuthService
 from app.platform.db.session import get_sessionmaker
 
+# example.com passes the login schema's EmailStr validation; .local does not.
 DEMO_USERS = [
-    ("operator@signet.local", "Signet Operator", Role.operator),
-    ("reviewer@signet.local", "Signet Reviewer", Role.reviewer),
-    ("evaluator@signet.local", "Signet Evaluator", Role.evaluator),
-    ("auditor@signet.local", "Signet Auditor", Role.auditor),
-    ("manager@signet.local", "Signet Environment Manager", Role.environment_manager),
-    ("resilience@signet.local", "Signet Resilience Manager", Role.resilience_manager),
+    ("demo-operator@example.com", "Signet Operator", Role.operator),
+    ("demo-reviewer@example.com", "Signet Reviewer", Role.reviewer),
+    ("demo-evaluator@example.com", "Signet Evaluator", Role.evaluator),
+    ("demo-auditor@example.com", "Signet Auditor", Role.auditor),
+    ("demo-manager@example.com", "Signet Environment Manager", Role.environment_manager),
+    ("demo-resilience@example.com", "Signet Resilience Manager", Role.resilience_manager),
+]
+
+# An earlier deploy seeded these. EmailStr rejects .local at /auth/login so
+# they could never authenticate, but they still get deactivated on sight.
+LEGACY_DEMO_EMAILS = [
+    "operator@signet.local",
+    "reviewer@signet.local",
+    "evaluator@signet.local",
+    "auditor@signet.local",
+    "manager@signet.local",
+    "resilience@signet.local",
 ]
 
 
@@ -37,15 +49,13 @@ def _flag_enabled() -> bool:
     return os.environ.get("ICM_SEED_DEMO_USERS", "").strip().lower() in {"1", "true", "yes"}
 
 
-def _deactivate_existing(service: AuthService, session: Session) -> int:
-    """Demo accounts must not survive in an environment that no longer opts in."""
+def _deactivate(service: AuthService, emails: list[str]) -> int:
     deactivated = 0
-    for email, _full_name, _role in DEMO_USERS:
+    for email in emails:
         user = service.get_by_email(email)
         if user is not None and user.is_active:
             user.is_active = False
             deactivated += 1
-    session.commit()
     return deactivated
 
 
@@ -53,8 +63,15 @@ def reconcile_demo_users(session: Session) -> tuple[int, str]:
     """Seed or deactivate demo accounts per the env gate. Returns (exit_code, message)."""
     service = AuthService(session)
 
+    # Legacy .local accounts are dead weight in any environment: purge always.
+    legacy_deactivated = _deactivate(service, LEGACY_DEMO_EMAILS)
+    session.commit()
+
     if not _flag_enabled():
-        deactivated = _deactivate_existing(service, session)
+        deactivated = legacy_deactivated + _deactivate(
+            service, [email for email, _full_name, _role in DEMO_USERS]
+        )
+        session.commit()
         if deactivated:
             return 0, f"ICM_SEED_DEMO_USERS not set — deactivated {deactivated} demo account(s)"
         return 0, "ICM_SEED_DEMO_USERS not set — nothing to do"

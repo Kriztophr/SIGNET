@@ -5,7 +5,11 @@ import uuid
 
 from app.platform.auth.models import Role
 from app.platform.auth.service import AuthService
-from app.platform.seed.demo_users import DEMO_USERS, reconcile_demo_users
+from app.platform.seed.demo_users import (
+    DEMO_USERS,
+    LEGACY_DEMO_EMAILS,
+    reconcile_demo_users,
+)
 
 
 def test_seed_does_nothing_without_the_env_gate(db, monkeypatch) -> None:
@@ -78,3 +82,41 @@ def test_redeploy_without_gate_deactivates_seeded_accounts(db, monkeypatch) -> N
     for email, _name, _role in DEMO_USERS:
         assert not service.get_by_email(email).is_active
         assert service.authenticate(email, "demo-Password-1!") is None
+
+
+def test_legacy_local_accounts_are_always_deactivated(db, monkeypatch) -> None:
+    """Accounts from the old @signet.local seed are locked out even when demo
+    seeding is enabled — they are a leftover, not part of the current set."""
+    AuthService(db).create_user(
+        tenant_id=uuid.uuid4(),
+        email=LEGACY_DEMO_EMAILS[0],
+        full_name="Legacy Demo Operator",
+        password="legacy-Pass-1!",
+        role=Role.operator,
+    )
+    db.commit()
+    monkeypatch.setenv("ICM_SEED_DEMO_USERS", "1")
+    monkeypatch.setenv("ICM_DEMO_USERS_PASSWORD", "demo-Password-1!")
+    assert reconcile_demo_users(db)[0] == 0
+    assert not AuthService(db).get_by_email(LEGACY_DEMO_EMAILS[0]).is_active
+
+
+def test_seeded_account_can_log_in_through_the_api(client, db, monkeypatch) -> None:
+    """A seeded demo account works end to end: its email must survive the login
+    endpoint's address validation (which rejects reserved domains like .local)."""
+    AuthService(db).create_user(
+        tenant_id=uuid.uuid4(),
+        email="bootstrap@example.com",
+        full_name="Bootstrap Admin",
+        password="bootstrap-Pass-1!",
+        role=Role.admin,
+    )
+    db.commit()
+    monkeypatch.setenv("ICM_SEED_DEMO_USERS", "1")
+    monkeypatch.setenv("ICM_DEMO_USERS_PASSWORD", "demo-Password-1!")
+    assert reconcile_demo_users(db)[0] == 0
+    response = client.post(
+        "/auth/login",
+        json={"email": DEMO_USERS[0][0], "password": "demo-Password-1!"},
+    )
+    assert response.status_code == 200, response.text
