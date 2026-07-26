@@ -93,7 +93,7 @@ class OpenAICompatibleAdapter:
                 "openai_compatible provider selected but no base_url configured "
                 "(set ICM_LLM_EXECUTOR_BASE_URL / ICM_LLM_JUDGE_BASE_URL)"
             )
-        self._base_url = base_url.rstrip("/")
+        self._base_url = base_url.rstrip("/").removesuffix("/chat/completions")
         self._api_key = api_key
         self._client = http_client or httpx.Client(timeout=self._TIMEOUT_SECONDS)
 

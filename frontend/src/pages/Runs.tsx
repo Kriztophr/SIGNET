@@ -216,22 +216,22 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
         <Card title="Task Context & Attachments">
           {manifest ? (
             <dl>
-              <dt>Layer 0 — identity</dt>
+              <dt>Workspace Identity</dt>
               <dd>
-                <code>{manifest.layer0_ref}</code>
+                <span className="muted">System persona & instructions</span>
               </dd>
-              <dt>Layer 1 — routing</dt>
+              <dt>Stage Sequence</dt>
               <dd>
-                <code>{manifest.layer1_ref}</code>
+                <span className="muted">Workflow routing rules</span>
               </dd>
-              <dt>Layer 2 — contract</dt>
+              <dt>Stage Contract Requirements</dt>
               <dd>
-                <code>{manifest.layer2_ref}</code>
+                <span className="muted">Input specifications & required deliverable rules</span>
               </dd>
-              <dt>Layer 4 — handoff inputs</dt>
+              <dt>Previous Stage Deliverables</dt>
               <dd>
                 {manifest.layer4_inputs_json.length === 0 ? (
-                  <span className="muted">none (first stage)</span>
+                  <span className="muted">None (initial stage)</span>
                 ) : (
                   manifest.layer4_inputs_json.map((input) => (
                     <div key={input.artifact_id}>
@@ -243,17 +243,26 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
                   ))
                 )}
               </dd>
-              <dt>Token estimate</dt>
+              <dt>Token Estimate</dt>
               <dd>{manifest.token_estimate.toLocaleString()}</dd>
             </dl>
           ) : (
             <Empty label="No manifest for this stage." />
           )}
-          {stage?.error_summary ? <p className="error-note">{stage.error_summary}</p> : null}
+          {stage?.error_summary ? (
+            <div className="error-note" style={{ marginTop: "0.8rem", padding: "0.8rem", borderRadius: "6px" }}>
+              <strong>⚠️ AI Assistant Alert</strong>
+              <p style={{ margin: "0.4rem 0 0 0" }}>
+                {stage.error_summary.includes("404")
+                  ? "The AI model provider is currently unreachable (404 Not Found). The stage has been left open so you can submit the required deliverable below."
+                  : stage.error_summary}
+              </p>
+            </div>
+          ) : null}
         </Card>
-        <Card title="Artifacts">
+        <Card title="Submitted Deliverables">
           {artifacts && artifacts.length === 0 ? (
-            <Empty label="No artifacts submitted yet." />
+            <Empty label="No deliverables submitted yet." />
           ) : (
             <table>
               <thead>
@@ -297,7 +306,7 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
           {preview ? <pre className="artifact">{preview.content}</pre> : null}
         </Card>
       </div>
-      <Card title="Stage actions">
+      <Card title="Stage Actions & Deliverable Submission">
         {!operator ? (
           <Empty label="Operator role required for stage actions." />
         ) : !running ? (
@@ -305,30 +314,51 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
         ) : (
           <>
             <label>
-              Artifact role
-              <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="scope_brief" />
+              Deliverable Role Name
+              <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. scope_brief or draft_memo" />
             </label>
-            <label>
-              Content
-              <textarea rows={8} value={content} onChange={(e) => setContent(e.target.value)} />
-            </label>
-            <button
-              disabled={role.trim() === "" || content === ""}
-              onClick={() =>
-                act(() =>
-                  api(`/workflow/stage-runs/${stageRunId}/artifacts`, "POST", {
-                    artifact_role: role.trim(),
-                    content,
-                  }),
-                ).then(() => setContent(""))
-              }
-            >
-              Submit artifact
-            </button>
-            <hr />
-            <div className="row">
+            <div className="row spread" style={{ marginBottom: "0.4rem", alignItems: "center" }}>
+              <label style={{ margin: 0 }}>Deliverable Content (Markdown)</label>
+              <button
+                className="ghost"
+                type="button"
+                style={{ fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}
+                onClick={() => {
+                  const targetRole = role.trim() || "scope_brief";
+                  setRole(targetRole);
+                  setContent(
+                    `# Deliverable: ${targetRole}\n\n## Summary\nCompleted required work for this stage according to contract guidelines.\n\n## Findings & Output\n- Analysis verified and formatted.\n- Ready for next review phase.\n`
+                  );
+                }}
+              >
+                ✨ Auto-fill sample content
+              </button>
+            </div>
+            <textarea
+              rows={8}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Type or paste markdown deliverable content here..."
+            />
+            <div style={{ marginTop: "0.6rem" }}>
+              <button
+                disabled={role.trim() === "" || content === ""}
+                onClick={() =>
+                  act(() =>
+                    api(`/workflow/stage-runs/${stageRunId}/artifacts`, "POST", {
+                      artifact_role: role.trim(),
+                      content,
+                    }),
+                  ).then(() => setContent(""))
+                }
+              >
+                Submit Deliverable
+              </button>
+            </div>
+            <hr style={{ margin: "1.2rem 0" }} />
+            <div className="row spread">
               <button onClick={() => act(() => api(`/workflow/stage-runs/${stageRunId}/complete`, "POST"))}>
-                Complete stage
+                Complete Stage & Advance
               </button>
               <button
                 className="danger"
@@ -340,7 +370,7 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
                   )
                 }
               >
-                Fail stage
+                Fail Stage
               </button>
             </div>
           </>
