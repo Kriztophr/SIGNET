@@ -23,6 +23,16 @@ human-capacity measurement build on that substrate.
 
 Where the two conflict, the master backend platform spec wins.
 
+## Learn Signet
+
+- [docs/research-column.md](docs/research-column.md) — *Trust Is a Build Artifact*: the
+  design principles behind the platform and the production results that tested them, as a
+  readable column.
+- [docs/course/syllabus.md](docs/course/syllabus.md) — **Governing Agentic AI**, a
+  10-module hands-on course taught on a running Signet instance: blueprints and gates,
+  rubric evals, agent containment, judge calibration, evidence packs, human-capacity
+  resilience, and a full governed-delivery capstone.
+
 ## Layer model and build status
 
 | Layer | Module | Responsibility | Status |
