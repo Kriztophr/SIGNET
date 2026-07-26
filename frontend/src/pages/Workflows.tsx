@@ -79,15 +79,15 @@ export function WorkflowsPage() {
   return (
     <>
       <header className="page-header">
-        <h1>Workflow templates</h1>
+        <h1>Workflow blueprints</h1>
         {operator ? (
           <button className="accent" onClick={() => setBuilding((b) => !b)}>
-            {building ? "Close builder" : "New template"}
+            {building ? "Close builder" : "New blueprint"}
           </button>
         ) : null}
         <p className="sub">
-          Staged ICM workflows: every stage carries a contract, and runs pause for review or
-          eval wherever you require it.
+          Staged governed workflows: every stage carries a contract, and runs pause for review or
+          eval wherever required.
         </p>
       </header>
       <ErrorNote error={error} />
@@ -97,14 +97,14 @@ export function WorkflowsPage() {
 
       {templates && templates.length === 0 && !building ? (
         <Card tone="lime">
-          <h2>No templates yet</h2>
+          <h2>No blueprints yet</h2>
           <p className="muted">
-            A template defines the stages of a governed workflow — scope, draft, review gates,
+            A blueprint defines the stages of a governed workflow — scope, draft, review gates,
             eval gates. Create your first one and start a run in under a minute.
           </p>
           {operator ? (
             <button className="on-light" onClick={() => setBuilding(true)}>
-              Create your first template
+              Create your first blueprint
             </button>
           ) : null}
         </Card>

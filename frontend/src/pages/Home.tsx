@@ -33,13 +33,13 @@ export function HomePage() {
       <div className="grid-4">
         <StatCard
           tone="lime"
-          label="Reviews waiting on a human"
+          label="Approvals awaiting review"
           value={reviews?.length ?? "…"}
           icon={<ClipboardCheck size={19} />}
         />
         <StatCard
           tone="lavender"
-          label="Evals awaiting scores"
+          label="Quality checks awaiting scores"
           value={awaiting?.length ?? "…"}
           icon={<Gauge size={19} />}
         />
@@ -62,7 +62,7 @@ export function HomePage() {
           actions={<Link className="button-link" to="/runs">See all</Link>}
         >
           {runs && runs.length === 0 ? (
-            <Empty label="No workflow runs yet — create a template and start one from Workflows." />
+            <Empty label="No workflow runs yet — create a blueprint and start one from Workflows." />
           ) : (
             <table>
               <thead>
@@ -97,7 +97,7 @@ export function HomePage() {
           )}
         </Card>
         <div>
-          <Card title="Review queue" actions={<Link className="button-link" to="/reviews">Open</Link>}>
+          <Card title="Approval queue" actions={<Link className="button-link" to="/reviews">Open</Link>}>
             {reviews && reviews.length === 0 ? (
               <Empty label="Queue is clear." />
             ) : (
@@ -115,11 +115,11 @@ export function HomePage() {
           </Card>
           <Card title="Get started">
             <p className="muted">
-              1. Create a <Link to="/workflows">workflow template</Link> with staged contracts.
+              1. Create a <Link to="/workflows">workflow blueprint</Link> with stage contracts.
               <br />
-              2. Start a run and submit stage artifacts.
+              2. Start a run and submit stage deliverables.
               <br />
-              3. Decide reviews, score <Link to="/evals">evals</Link>, promote{" "}
+              3. Approve reviews, grade <Link to="/evals">quality checks</Link>, release{" "}
               <Link to="/promotions">environments</Link>.
             </p>
           </Card>

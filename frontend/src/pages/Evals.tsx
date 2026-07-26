@@ -27,13 +27,13 @@ export function EvalsPage() {
   return (
     <>
       <header className="page-header">
-        <h1>Evals</h1>
+        <h1>Quality checks & evals</h1>
         {can(user, "evaluator") ? (
           <button className="accent" onClick={() => setSetup((s) => !s)}>
-            {setup ? "Close" : "New eval run"}
+            {setup ? "Close" : "New quality check"}
           </button>
         ) : null}
-        <p className="sub">Score workflow outputs against versioned rubrics.</p>
+        <p className="sub">Grade workflow deliverables against versioned quality rubrics.</p>
       </header>
       <ErrorNote error={error} />
       {setup ? (
@@ -45,16 +45,16 @@ export function EvalsPage() {
           }}
         />
       ) : null}
-      <Card tone="light" title="Awaiting your score">
+      <Card tone="light" title="Awaiting your grade">
         {awaiting && awaiting.length === 0 ? (
-          <Empty label="Nothing awaits scoring." />
+          <Empty label="Nothing awaits grading." />
         ) : (
           <EvalTable runs={awaiting ?? []} />
         )}
       </Card>
-      <Card title="Recent eval runs">
+      <Card title="Recent quality checks">
         {recent && recent.length === 0 ? (
-          <Empty label="No eval runs yet — start one with 'New eval run'." />
+          <Empty label="No quality checks yet — start one with 'New quality check'." />
         ) : (
           <EvalTable runs={recent ?? []} />
         )}

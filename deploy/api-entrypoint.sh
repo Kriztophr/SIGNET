@@ -8,5 +8,8 @@ set -e
 echo "[entrypoint] applying database migrations…"
 alembic upgrade head
 
+echo "[entrypoint] seeding demo user accounts…"
+python -m app.platform.seed.demo_users || true
+
 echo "[entrypoint] starting uvicorn…"
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

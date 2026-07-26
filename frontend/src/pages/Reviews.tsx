@@ -13,20 +13,20 @@ export function ReviewsPage() {
   return (
     <>
       <header className="page-header">
-        <h1>Review queue</h1>
-        <p className="muted">Open review tasks awaiting a human decision.</p>
+        <h1>Approval queue</h1>
+        <p className="muted">Open approval tasks awaiting a reviewer decision.</p>
       </header>
       <ErrorNote error={error} />
       <Card>
         {tasks && tasks.length === 0 ? (
-          <Empty label="No open review tasks. The queue is clear." />
+          <Empty label="No open approval tasks. The queue is clear." />
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Task</th>
                 <th>Run</th>
-                <th>Eligible role</th>
+                <th>Required reviewer role</th>
                 <th>Opened</th>
                 <th>Due</th>
                 <th />

@@ -10,8 +10,8 @@ export function RunsPage() {
   return (
     <>
       <header className="page-header">
-        <h1>Workflow runs</h1>
-        <p className="muted">Every run, its state, and its inspectable ICM workspace.</p>
+        <h1>Active workflows & runs</h1>
+        <p className="muted">Every run, its live state, and inspectable workspace context.</p>
       </header>
       <ErrorNote error={error} />
       <Card>
@@ -65,6 +65,8 @@ export function RunDetailPage() {
   const { user } = useAuth();
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const { data: run, error, reload: reloadRun } = useLoad(
     () => api<WorkflowRun>(`/workflow/runs/${runId}`),
@@ -95,12 +97,39 @@ export function RunDetailPage() {
     }
   }
 
+  async function exportCompliancePack() {
+    if (!runId) return;
+    setExportError(null);
+    setExporting(true);
+    try {
+      const packText = await apiText(`/governance/evidence-packs/runs/${runId}`);
+      const blob = new Blob([packText], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `signet-evidence-pack-${runId.slice(0, 8)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <header className="page-header">
         <h1>Run {runId?.slice(0, 8)}</h1>
         <div className="row">
           {run ? <StatusBadge status={run.status} /> : null}
+          {can(user, "auditor") || can(user, "operator") ? (
+            <button className="accent" disabled={exporting} onClick={exportCompliancePack}>
+              {exporting ? "Exporting…" : "Export Compliance Pack"}
+            </button>
+          ) : null}
           {run && can(user, "operator") && CANCELLABLE.includes(run.status) ? (
             <button className="danger" onClick={cancelRun}>
               Cancel run
@@ -110,6 +139,7 @@ export function RunDetailPage() {
       </header>
       <ErrorNote error={error} />
       <ErrorNote error={cancelError} />
+      <ErrorNote error={exportError} />
       <div className="stage-tabs">
         {(stages ?? []).map((stage, index) => (
           <button
@@ -183,7 +213,7 @@ function StagePanel({ stageRunId, onChanged }: { stageRunId: string; onChanged: 
             </dd>
           </dl>
         </Card>
-        <Card title="Context manifest (ICM layers)">
+        <Card title="Task Context & Attachments">
           {manifest ? (
             <dl>
               <dt>Layer 0 — identity</dt>

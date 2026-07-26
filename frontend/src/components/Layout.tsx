@@ -16,12 +16,12 @@ import { useTheme } from "../theme";
 
 const NAV = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/workflows", label: "Workflows", icon: WorkflowIcon },
-  { to: "/runs", label: "Runs", icon: Boxes },
-  { to: "/reviews", label: "Reviews", icon: ClipboardCheck },
-  { to: "/evals", label: "Evals", icon: Gauge },
-  { to: "/promotions", label: "Promotions", icon: Rocket },
-  { to: "/resilience", label: "Resilience", icon: HeartPulse },
+  { to: "/workflows", label: "Blueprints", icon: WorkflowIcon },
+  { to: "/runs", label: "Active Workflows", icon: Boxes },
+  { to: "/reviews", label: "Approval Queue", icon: ClipboardCheck },
+  { to: "/evals", label: "Quality Checks", icon: Gauge },
+  { to: "/promotions", label: "Release Gates", icon: Rocket },
+  { to: "/resilience", label: "Human-Capacity Resilience", icon: HeartPulse },
 ];
 
 export function Layout() {
