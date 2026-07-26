@@ -72,4 +72,4 @@ But the thesis has survived everything we've thrown at it so far: **trust in AI 
 
 ---
 
-*Signet is a FastAPI + React platform implementing governed agent workflows with evidence-gated releases. The methodology, evidence formats, and calibration mathematics described here are documented in the project's `docs/` directory: `icm-paper.md`, `evidence-pack.md`, `enterprise-scenario.md`, and `master-backend-platform-spec.md`. A companion course is in `docs/course/`.*
+*Signet is a FastAPI + React platform implementing governed agent workflows with evidence-gated releases. The methodology, evidence formats, and calibration mathematics described here are documented in the project's `docs/` directory: `icm-paper.md`, `evidence-pack.md`, `enterprise-scenario.md`, and `master-backend-platform-spec.md`.*
