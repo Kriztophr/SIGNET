@@ -155,3 +155,6 @@ artifact storage. See [docs/deployment.md](docs/deployment.md) for the full runb
 provisioning, hardening, first deploy, migrations, admin bootstrap, updates, and backups.
 CI (GitHub Actions) runs lint and the full test suite on every push.
 Kubernetes is a deliberate non-goal.
+
+To run the platform on a workstation — Compose, or a SQLite path that needs no
+Docker — see [docs/local-development.md](docs/local-development.md).

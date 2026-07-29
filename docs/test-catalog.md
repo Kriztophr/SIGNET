@@ -4,7 +4,7 @@ Each line below is one automated check, described for a human reviewer.
 A release is only shipped when every one of them passes. Regenerate after
 changing tests: `uv run python tools/generate_test_catalog.py`.
 
-**163 checks across 22 areas.**
+**177 checks across 23 areas.**
 
 ## Agent execution (automated stages, kill switch)
 
@@ -215,7 +215,7 @@ changing tests: `uv run python tools/generate_test_catalog.py`.
 
 ## LLM providers (Anthropic, OpenAI-compatible)
 
-*7 checks — `tests/test_llm_adapters.py`*
+*12 checks — `tests/test_llm_adapters.py`*
 
 > Provider-agnostic LLM adapters (charter 2026-07-08: open-source models behind the same seam — OpenAI-compatible servers like vLLM/Ollama/OpenRouter).
 
@@ -223,6 +223,11 @@ changing tests: `uv run python tools/generate_test_catalog.py`.
 - Openai compatible no auth header without key.
 - Openai compatible http error raises.
 - Openai compatible requires base url.
+- Free hosted judges 429 routinely; a transient limit must not read as a judge decision. Two refusals then a success yields the success.
+- When the server says how long to wait, we wait exactly that.
+- Retries are bounded — the caller degrades rather than hanging forever.
+- A 400 will not fix itself; retrying only burns the stage's time budget.
+- Network blips are retried.
 - Factory selects provider per role.
 - Factory rejects unknown provider.
 - Cost uses extra price overrides.
@@ -232,6 +237,22 @@ changing tests: `uv run python tools/generate_test_catalog.py`.
 *1 checks — `tests/test_migrations.py`*
 
 - The full database migration chain walks up and back down cleanly on a fresh database.
+
+## password management
+
+*9 checks — `tests/test_password_management.py`*
+
+> Password recovery and self-service change.
+
+- The recovery path an operator runs when the admin password is lost.
+- Recovery also un-disables, so a deactivated admin is not a dead end.
+- A typo'd email must not look like a successful reset.
+- Reset cli requires both env vars.
+- The minimum-length floor holds on the recovery path too.
+- Change password rotates the credential.
+- A valid token is not enough — otherwise a stolen token locks the owner out.
+- Change password enforces the length floor.
+- Change password rejects anonymous callers.
 
 ## Platform core (identity, time, events)
 

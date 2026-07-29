@@ -41,6 +41,24 @@ class AuthService:
     def get_by_email(self, email: str) -> User | None:
         return self._session.scalar(select(User).where(User.email == email.strip().lower()))
 
+    def set_password(self, user: User, new_password: str) -> User:
+        """Force-set a password. Callers must have already established authority
+        (an operator with database access, or a verified current password)."""
+        if len(new_password) < MIN_PASSWORD_LENGTH:
+            raise DomainValidationError(
+                f"password must be at least {MIN_PASSWORD_LENGTH} characters"
+            )
+        user.hashed_password = hash_password(new_password)
+        self._session.flush()
+        return user
+
+    def change_password(self, user: User, current_password: str, new_password: str) -> User:
+        """Self-service change: the current password is the authority, so it is
+        verified first and a wrong one fails closed without touching the record."""
+        if not verify_password(current_password, user.hashed_password):
+            raise DomainValidationError("current password is incorrect")
+        return self.set_password(user, new_password)
+
     def authenticate(self, email: str, password: str) -> User | None:
         """Returns the user on success, None on any failure (fail closed)."""
         user = self.get_by_email(email)

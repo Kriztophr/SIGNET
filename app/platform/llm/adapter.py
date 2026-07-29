@@ -15,6 +15,9 @@ Tests (and any future provider swap) override the factory with
 
 from __future__ import annotations
 
+import random
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -81,12 +84,29 @@ class AnthropicAdapter:
 class OpenAICompatibleAdapter:
     """Any server speaking the OpenAI chat-completions API: vLLM, Ollama,
     OpenRouter, Groq, Together. Uses httpx directly — the surface is one POST.
-    api_key may be empty for local servers that need no auth."""
+    api_key may be empty for local servers that need no auth.
+
+    Retries transient failures (429 rate limits, 5xx, network blips) with
+    exponential backoff. Free hosted models rate-limit routinely, and without
+    this a judge's silence is ambiguous between *a considered abstention* and
+    *an outage* — which corrupts the calibration signal that judge silence is
+    supposed to carry. Permanent failures (400s) are never retried: they will
+    not fix themselves and retrying only burns the stage's time budget.
+    """
 
     _TIMEOUT_SECONDS = 300.0  # local models on modest hardware can be slow
+    _MAX_ATTEMPTS = 3
+    _BACKOFF_BASE_SECONDS = 1.0
+    _MAX_BACKOFF_SECONDS = 30.0
+    _RETRY_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 
     def __init__(
-        self, base_url: str, api_key: str = "", *, http_client: httpx.Client | None = None
+        self,
+        base_url: str,
+        api_key: str = "",
+        *,
+        http_client: httpx.Client | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         if not base_url:
             raise LLMNotConfiguredError(
@@ -96,21 +116,46 @@ class OpenAICompatibleAdapter:
         self._base_url = base_url.rstrip("/").removesuffix("/chat/completions")
         self._api_key = api_key
         self._client = http_client or httpx.Client(timeout=self._TIMEOUT_SECONDS)
+        self._sleep = sleep
+
+    def _backoff_seconds(self, attempt: int, retry_after: str | None) -> float:
+        """Honour the server's Retry-After when it sends one; otherwise back off
+        exponentially with jitter so concurrent stages don't retry in lockstep."""
+        if retry_after:
+            try:
+                return min(float(retry_after), self._MAX_BACKOFF_SECONDS)
+            except ValueError:
+                pass  # HTTP-date form; fall through to our own schedule
+        delay = min(self._BACKOFF_BASE_SECONDS * (2**attempt), self._MAX_BACKOFF_SECONDS)
+        return delay + random.uniform(0, delay / 4)
 
     def complete(self, *, model: str, system: str, user_content: str, max_tokens: int) -> LLMResult:
         headers = {"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}
-        response = self._client.post(
-            f"{self._base_url}/chat/completions",
-            headers=headers,
-            json={
-                "model": model,
-                "max_tokens": max_tokens,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user_content},
-                ],
-            },
-        )
+        payload = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+        }
+        url = f"{self._base_url}/chat/completions"
+        last_attempt = self._MAX_ATTEMPTS - 1
+
+        for attempt in range(self._MAX_ATTEMPTS):
+            try:
+                response = self._client.post(url, headers=headers, json=payload)
+            except httpx.TransportError:
+                if attempt == last_attempt:
+                    raise
+                self._sleep(self._backoff_seconds(attempt, None))
+                continue
+
+            if response.status_code in self._RETRY_STATUSES and attempt < last_attempt:
+                self._sleep(self._backoff_seconds(attempt, response.headers.get("retry-after")))
+                continue
+            break
+
         response.raise_for_status()
         data = response.json()
         text = data["choices"][0]["message"].get("content") or ""

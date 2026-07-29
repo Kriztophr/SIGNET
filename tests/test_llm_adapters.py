@@ -28,11 +28,13 @@ CHAT_COMPLETION = {
 }
 
 
-def make_adapter(handler, api_key="test-key"):
+def make_adapter(handler, api_key="test-key", sleeps=None):
+    """Sleeps are captured rather than slept, so retry tests stay instant."""
     return OpenAICompatibleAdapter(
         "http://llm.local/v1/",
         api_key,
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        sleep=(sleeps.append if sleeps is not None else lambda _seconds: None),
     )
 
 
@@ -85,6 +87,85 @@ def test_openai_compatible_http_error_raises() -> None:
 def test_openai_compatible_requires_base_url() -> None:
     with pytest.raises(LLMNotConfiguredError):
         OpenAICompatibleAdapter("")
+
+
+def test_rate_limited_call_is_retried_and_succeeds() -> None:
+    """Free hosted judges 429 routinely; a transient limit must not read as a
+    judge decision. Two refusals then a success yields the success."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(429, json={"error": "rate limited upstream"})
+        return httpx.Response(200, json=CHAT_COMPLETION)
+
+    sleeps: list[float] = []
+    result = make_adapter(handler, sleeps=sleeps).complete(
+        model="m", system="s", user_content="u", max_tokens=8
+    )
+
+    assert result.text == "scored"
+    assert calls["n"] == 3
+    assert len(sleeps) == 2  # backed off between attempts
+    assert sleeps[1] > sleeps[0]  # exponential, not flat
+
+
+def test_retry_honours_retry_after_header() -> None:
+    """When the server says how long to wait, we wait exactly that."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, headers={"retry-after": "7"}, json={"error": "slow down"})
+
+    sleeps: list[float] = []
+    with pytest.raises(httpx.HTTPStatusError):
+        make_adapter(handler, sleeps=sleeps).complete(
+            model="m", system="s", user_content="u", max_tokens=8
+        )
+
+    assert sleeps == [7.0, 7.0]
+
+
+def test_persistent_rate_limit_eventually_raises() -> None:
+    """Retries are bounded — the caller degrades rather than hanging forever."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(429, json={"error": "still limited"})
+
+    with pytest.raises(httpx.HTTPStatusError):
+        make_adapter(handler).complete(model="m", system="s", user_content="u", max_tokens=8)
+
+    assert calls["n"] == OpenAICompatibleAdapter._MAX_ATTEMPTS
+
+
+def test_client_errors_are_not_retried() -> None:
+    """A 400 will not fix itself; retrying only burns the stage's time budget."""
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(400, json={"error": "unknown model"})
+
+    with pytest.raises(httpx.HTTPStatusError):
+        make_adapter(handler).complete(model="m", system="s", user_content="u", max_tokens=8)
+
+    assert calls["n"] == 1
+
+
+def test_network_blips_are_retried() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise httpx.ConnectError("connection reset")
+        return httpx.Response(200, json=CHAT_COMPLETION)
+
+    result = make_adapter(handler).complete(model="m", system="s", user_content="u", max_tokens=8)
+    assert result.text == "scored"
+    assert calls["n"] == 2
 
 
 def test_factory_selects_provider_per_role(monkeypatch) -> None:

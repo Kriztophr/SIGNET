@@ -240,6 +240,41 @@ section.
 - Every response carries `X-Correlation-ID`; pass one in to trace a request across
   logs and audit events (`GET /governance/audit-events`, auditor/admin).
 
+## Account recovery (lost or rotated password)
+
+Two paths, differing in what supplies the authority.
+
+**Self-service** — the user knows their current password and wants a new one.
+No operator involvement, no database access:
+
+```
+POST /auth/change-password
+Authorization: Bearer <token>
+{"current_password": "...", "new_password": "..."}
+```
+
+The current password is re-verified even though the caller already holds a valid
+token, so a stolen token alone cannot lock the owner out of their own account. A
+fresh token is returned, since the old one was minted against the old credential.
+
+**Operator recovery** — the password is lost, so database access is the authority.
+Run inside the api container (Coolify → the api service → Terminal):
+
+```sh
+ICM_RESET_EMAIL=admin@example.com \
+ICM_RESET_PASSWORD='<a strong new password>' \
+python -m app.platform.auth.reset_password
+```
+
+This also reactivates a deactivated account, so a disabled admin is not a dead
+end. It exits non-zero on an unknown email — a typo fails loudly rather than
+looking like success. Passwords must clear the 12-character minimum.
+
+Note the login throttle: five failed attempts for one email within 15 minutes
+returns **429** rather than 401. If a correct password is being rejected with a
+429, the account is throttled, not wrong — wait out the window (the counter is
+in-process, so an api restart also clears it).
+
 ## Security
 
 The full security model — authentication, RBAC, tenant isolation, fail-closed

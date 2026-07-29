@@ -4,7 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.platform.auth.dependencies import get_current_user
 from app.platform.auth.models import User
-from app.platform.auth.schemas import LoginRequest, TokenResponse, UserOut
+from app.platform.auth.schemas import (
+    ChangePasswordRequest,
+    LoginRequest,
+    TokenResponse,
+    UserOut,
+)
 from app.platform.auth.service import AuthService
 from app.platform.auth.throttle import get_login_throttle
 from app.platform.auth.tokens import create_access_token
@@ -31,6 +36,23 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
         )
     throttle.reset(email)
     security_log.info("login_succeeded", email=email, user_id=str(user.id))
+    return TokenResponse(access_token=create_access_token(user))
+
+
+@router.post("/auth/change-password", response_model=TokenResponse)
+def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Self-service password change. The current password is re-verified even
+    though the caller holds a valid token, so a stolen token alone cannot lock
+    the owner out of their own account."""
+    AuthService(db).change_password(user, body.current_password, body.new_password)
+    db.commit()
+    security_log.info("password_changed", user_id=str(user.id))
+    # Issue a fresh token so the caller is not left holding one minted against
+    # the old credential.
     return TokenResponse(access_token=create_access_token(user))
 
 
