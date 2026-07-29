@@ -21,7 +21,7 @@ set -u
 
 STATE=/var/lib/icm-autodeploy/head
 LOG=/var/log/icm-autodeploy.log
-REPO=git@github.com:Kriztophr/NS.git
+REPO=git@github.com:Kriztophr/SIGNET.git   # renamed from NS; GitHub still redirects the old name
 KEY=/var/www/html/storage/app/ssh/keys/ssh_key@l0scg8s4c08gcc80ocgs4ws8   # path inside the coolify container
 APP_UUID=t480sk0kc8gkc44k8s0cokg8
 TOKEN_FILE=/root/.icm-coolify-token   # optional: file containing the bearer token
