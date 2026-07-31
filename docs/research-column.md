@@ -38,6 +38,8 @@ The live system produced our favorite result here. Our first golden set containe
 
 The deeper lesson: the failure was in the *golden set*, not the judge. The judge was right to fail the stub. Calibration infrastructure doesn't just validate judges — it audits your own ground truth.
 
+(Credit where due: the statistics of judge calibration are published, and published better than our implementation — Lee et al. (arXiv:2511.21140) work out the correction with properly propagated uncertainty, and Fiedler (arXiv:2605.06939) the reliability diagnostics. Use their estimators. What we'd defend as ours is the *placement*: the refusal enforced automatically at the reporting boundary rather than left to an analyst's diligence.)
+
 ## 4. Evidence must be self-verifying
 
 When someone asks "prove this run was governed," the answer cannot be a database query only the vendor can run. Signet exports an **evidence pack** per workflow run: one JSON document containing the full lineage — stage contracts (with content hashes), every artifact (hashed, with the human or agent identity that produced it), review decisions, evaluation scores with judge provenance, disagreements, drift signals, model usage and spend, the audit trail, and the judge-calibration metrics that say how much the automated oversight itself can be trusted.
@@ -56,7 +58,7 @@ We know of no other system that couples "is the model good enough?" and "are the
 
 ## The number that matters
 
-If you keep one metric from a governed AI system, keep the **override rate**: of the outputs humans reviewed, what fraction did they change or reject? In our end-to-end enterprise scenario, the override rate was 0.5 — one memo approved as-is, one edited before approval.
+If you keep one metric from a governed AI system, keep the **override rate**: of the outputs humans reviewed, what fraction did they change or reject? In our end-to-end enterprise scenario, the override rate was 0.5 — one memo approved as-is, one edited before approval. (Two scripted runs: that number illustrates what the instrument computes, and is not offered as a finding.)
 
 An override rate of zero is not good news; it means review has become theater (or your reviewers can no longer tell — see principle 5). A very high rate means the automation isn't earning its keep. The number is only meaningful because every override is a recorded decision on a gated stage — which is to say, the metric is a *byproduct of structure*. You cannot bolt it on afterwards.
 
