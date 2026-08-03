@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Airchelon research source file",
+  "description": "Output contract for the research agent. Prose is not a valid output. Every factual claim that reaches a draft must correspond to a record here.",
+  "type": "object",
+  "required": ["piece_id", "brief", "generated_at", "agent", "sources"],
+  "properties": {
+    "piece_id": { "type": "string", "description": "Matches the piece ID in the review tool" },
+    "brief": { "type": "string", "description": "The commissioning brief this research was run against" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "agent": {
+      "type": "object",
+      "required": ["model_id", "prompt_commit"],
+      "properties": {
+        "model_id": { "type": "string", "description": "Pinned model ID, never a floating alias" },
+        "prompt_commit": { "type": "string", "description": "Git commit hash of prompts/research-agent.md at run time" }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "claim", "confidence"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^S-[0-9]{3}$" },
+          "claim": { "type": "string", "description": "A single factual assertion, one sentence. Not a summary." },
+          "source_url": { "type": "string" },
+          "publisher": { "type": "string" },
+          "published_date": { "type": "string" },
+          "accessed": { "type": "string", "format": "date-time" },
+          "quote_or_locator": { "type": "string", "description": "Short excerpt or section reference. Keep excerpts minimal." },
+          "confidence": {
+            "type": "string",
+            "enum": ["direct", "inferred", "contested", "unsourced"],
+            "description": "direct = the source states this plainly. inferred = the source supports it but does not state it. contested = sources disagree; requires a paired record taking the other position. unsourced = no source found; the gap is recorded rather than filled."
+          },
+          "contested_pair": { "type": "string", "description": "ID of the opposing record. Required when confidence is 'contested'." }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "confidence": { "const": "contested" } } },
+            "then": { "required": ["contested_pair"] }
+          },
+          {
+            "if": { "properties": { "confidence": { "enum": ["direct", "inferred", "contested"] } } },
+            "then": { "required": ["source_url", "publisher", "accessed"] }
+          }
+        ]
+      }
+    }
+  }
+}
