@@ -19,6 +19,7 @@ dependencies = [
     "bcrypt>=4.2",
     "anthropic>=0.116.0",
     "httpx>=0.28",
+    "jsonschema>=4.23",
 ]
 
 [dependency-groups]
